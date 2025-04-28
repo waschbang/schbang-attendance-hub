@@ -12,7 +12,7 @@ const ThemeToggle = () => {
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <div className="w-9 h-9"></div>; // Placeholder of same size to prevent layout shift
+    return <div className="w-10 h-10"></div>; // Placeholder to prevent layout shift
   }
 
   return (
@@ -21,13 +21,21 @@ const ThemeToggle = () => {
       size="icon"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       aria-label="Toggle theme"
-      className="rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900"
+      className="relative w-10 h-10 rounded-full overflow-hidden transition-all duration-500 ease-in-out hover:bg-gray-100/80 dark:hover:bg-gray-900/80 group"
     >
-      {theme === "dark" ? (
-        <Sun size={18} className="text-gray-400" />
-      ) : (
-        <Moon size={18} className="text-gray-600" />
-      )}
+      <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-300 ease-in-out">
+        {theme === "dark" ? (
+          <Sun 
+            size={20} 
+            className="opacity-100 group-hover:scale-110 transition-transform duration-300 text-gray-300" 
+          />
+        ) : (
+          <Moon 
+            size={20} 
+            className="opacity-100 group-hover:scale-110 transition-transform duration-300 text-gray-600" 
+          />
+        )}
+      </div>
     </Button>
   );
 };
