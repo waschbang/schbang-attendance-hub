@@ -21,7 +21,7 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
+        <Sonner position="top-center" closeButton={true} className="font-light" />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Login />} />

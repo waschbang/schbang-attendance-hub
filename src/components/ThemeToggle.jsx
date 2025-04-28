@@ -21,12 +21,12 @@ const ThemeToggle = () => {
       size="icon"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       aria-label="Toggle theme"
-      className="rounded-full"
+      className="rounded-full text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900"
     >
       {theme === "dark" ? (
-        <Sun size={20} className="text-yellow-400" />
+        <Sun size={18} className="text-gray-400" />
       ) : (
-        <Moon size={20} className="text-schbang-primary" />
+        <Moon size={18} className="text-gray-600" />
       )}
     </Button>
   );

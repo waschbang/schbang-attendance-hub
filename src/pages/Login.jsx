@@ -1,9 +1,8 @@
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { useToast } from '../components/ui/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
@@ -32,7 +31,6 @@ const Login = () => {
       setIsLoading(true);
       
       // Mock login for demo purposes
-      // Replace with actual API call to your authentication service
       setTimeout(() => {
         // Hardcoded credentials for demo - replace with actual auth
         if (email === 'demo@client.com' && password === 'password') {
@@ -44,7 +42,7 @@ const Login = () => {
           navigate('/dashboard');
         } else {
           toast({
-            title: "Authentication Error",
+            title: "Error",
             description: "Invalid email or password.",
             variant: "destructive",
           });
@@ -64,106 +62,83 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="absolute top-4 right-4">
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-white dark:bg-black p-4 relative">
+      <div className="absolute top-6 right-6">
         <ThemeToggle />
       </div>
       
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold text-primary">
-          <span className="animated-gradient bg-clip-text text-transparent">SchbangPeople</span>
-        </h1>
-        <p className="mt-2 text-muted-foreground">Client Attendance Portal</p>
-      </div>
-      
-      <Card className="w-full max-w-md shadow-lg glass-card animate-fade-in">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Welcome Back</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to access your employee attendance dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="client@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-sm text-muted-foreground cursor-pointer"
-                >
-                  Remember me
-                </label>
-              </div>
-              <a
-                href="#"
-                className="text-sm text-primary hover:underline"
-              >
-                Forgot password?
-              </a>
-            </div>
-            <Button
-              type="submit"
-              className="w-full bg-primary hover:bg-primary/90"
-              disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex justify-center border-t pt-4">
-          <p className="text-sm text-muted-foreground">
-            Need assistance? Contact{" "}
-            <a href="mailto:support@schbang.com" className="text-primary hover:underline">
-              support@schbang.com
-            </a>
+      <div className="w-full max-w-md mx-auto">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-light mb-6">SchbangPeople</h1>
+          <p className="text-muted-foreground text-lg font-light">
+            Employee Attendance Portal
           </p>
-        </CardFooter>
-      </Card>
-      
-      <div className="mt-8 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} SchbangPeople. All rights reserved.</p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="space-y-8">
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-12 bg-transparent border-x-0 border-t-0 border-b border-gray-200 dark:border-gray-800 rounded-none px-0 text-lg font-light"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2 relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-12 bg-transparent border-x-0 border-t-0 border-b border-gray-200 dark:border-gray-800 rounded-none px-0 text-lg font-light pr-10"
+              required
+            />
+            <button
+              type="button"
+              className="absolute right-0 top-1/2 -translate-y-1/2 text-muted-foreground"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="remember"
+                className="h-4 w-4 rounded-sm border-gray-200 dark:border-gray-800"
+              />
+              <label 
+                htmlFor="remember"
+                className="text-sm text-muted-foreground font-light"
+              >
+                Remember me
+              </label>
+            </div>
+            <a
+              href="#"
+              className="text-sm text-primary hover:underline font-light"
+            >
+              Forgot password?
+            </a>
+          </div>
+          
+          <Button
+            type="submit"
+            className="w-full h-12 mt-6 bg-black dark:bg-white text-white dark:text-black rounded-full font-light hover:opacity-90 transition-opacity"
+            disabled={isLoading}
+          >
+            {isLoading ? "Signing in..." : "Sign in"}
+          </Button>
+        </form>
+        
+        <div className="mt-16 text-center text-sm text-muted-foreground">
+          <p>© {new Date().getFullYear()} SchbangPeople. All rights reserved.</p>
+        </div>
       </div>
     </div>
   );
