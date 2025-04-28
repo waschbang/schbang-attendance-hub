@@ -104,10 +104,22 @@ const Login = () => {
         animate="visible"
       >
         <motion.div 
-          className="text-center mb-20"
+          className="text-center mb-12"
           variants={itemVariants}
         >
-          <h1 className="text-5xl font-light mb-8 tracking-tight">SchbangPeople</h1>
+          <motion.div 
+            className="flex items-center justify-center mb-8"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <img 
+              src="/schbang-logo.png" 
+              alt="Schbang Logo" 
+              className="h-14 md:h-16"
+            />
+          </motion.div>
+          <h1 className="text-4xl font-light mb-6 tracking-tight">SchbangPeople</h1>
           <p className="text-muted-foreground text-lg font-light">
             Employee Attendance Portal
           </p>
@@ -115,7 +127,7 @@ const Login = () => {
         
         <motion.form 
           onSubmit={handleLogin} 
-          className="space-y-10"
+          className="space-y-10 px-4 md:px-0"
           variants={containerVariants}
         >
           <motion.div 

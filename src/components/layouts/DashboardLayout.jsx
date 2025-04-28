@@ -13,6 +13,7 @@ import {
   Settings, 
   LogOut 
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -65,26 +66,47 @@ const DashboardLayout = ({ children }) => {
     { name: 'Reports', icon: BarChart4, path: '/reports' },
     { name: 'Settings', icon: Settings, path: '/settings' }
   ];
+
+  const sidebarVariants = {
+    open: { x: 0, transition: { type: "spring", stiffness: 300, damping: 30 } },
+    closed: { x: "-100%", transition: { type: "spring", stiffness: 300, damping: 30 } }
+  };
   
   return (
     <div className="min-h-screen bg-white dark:bg-black">
       {/* Sidebar */}
-      <div
-        className={`${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed top-0 left-0 z-40 h-full w-64 transition-transform duration-300 ease-in-out bg-white dark:bg-black border-r border-gray-100 dark:border-gray-900 lg:translate-x-0`}
+      <motion.div
+        className="fixed top-0 left-0 z-40 h-full w-64 bg-white dark:bg-black border-r border-gray-100 dark:border-gray-900 lg:translate-x-0"
+        variants={sidebarVariants}
+        initial={isMobileView ? "closed" : "open"}
+        animate={isSidebarOpen ? "open" : "closed"}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-center h-20 px-6">
-            <h1 className="text-2xl font-light">
-              SchbangPeople
-            </h1>
-          </div>
+          <motion.div 
+            className="flex items-center h-20 px-6 border-b border-gray-100 dark:border-gray-900"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <Link to="/dashboard" className="flex items-center space-x-3">
+              <img 
+                src="/schbang-logo.png" 
+                alt="Schbang Logo" 
+                className="h-8"
+              />
+              <span className="text-xl font-light">People</span>
+            </Link>
+          </motion.div>
           
           <div className="flex-1 px-3 py-8 overflow-y-auto">
             <ul className="space-y-6">
-              {navItems.map((item) => (
-                <li key={item.name}>
+              {navItems.map((item, index) => (
+                <motion.li 
+                  key={item.name}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 + index * 0.1, duration: 0.5 }}
+                >
                   <Link
                     to={item.path}
                     className="flex items-center p-3 text-base font-light rounded-lg hover:bg-gray-50 dark:hover:bg-gray-950 group"
@@ -92,7 +114,7 @@ const DashboardLayout = ({ children }) => {
                     <item.icon className="w-5 h-5 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
                     <span className="ml-3 text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">{item.name}</span>
                   </Link>
-                </li>
+                </motion.li>
               ))}
             </ul>
           </div>
@@ -108,7 +130,7 @@ const DashboardLayout = ({ children }) => {
             </Button>
           </div>
         </div>
-      </div>
+      </motion.div>
       
       {/* Main Content */}
       <div className={`${isSidebarOpen ? 'lg:ml-64' : ''} transition-all duration-300 ease-in-out`}>

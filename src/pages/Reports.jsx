@@ -14,7 +14,7 @@ const Reports = () => {
       >
         <div className="space-y-3">
           <motion.h1 
-            className="text-4xl font-medium tracking-tight"
+            className="text-4xl font-light tracking-tight"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
@@ -35,6 +35,7 @@ const Reports = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="space-y-8"
         >
           <Card className="border-0 shadow-sm rounded-2xl bg-card/50 backdrop-blur-sm overflow-hidden">
             <CardContent className="p-16 flex items-center justify-center">
