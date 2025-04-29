@@ -30,13 +30,8 @@ import {
 } from '../components/ui/table';
 
 import { fetchEmployeesByDepartment } from '../services/employeeService';
-import { 
-  fetchEmployeeAttendance,
-  fetchTodayAttendance,
-  fetchLastNDaysAttendance,
-  formatTimeForDisplay
-} from '../services/attendanceService';
-import { fetchMonthAttendance } from '../services/fetchMonthAttendance';
+import { formatTimeForDisplay } from '../services/attendanceService';
+import { fetchMonthAttendance, filterAttendanceByPeriod } from '../services/fetchMonthAttendance';
 
 const AttendanceOverview = () => {
   const [employees, setEmployees] = useState([]);
@@ -46,6 +41,11 @@ const AttendanceOverview = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // State to store the full month's attendance data
+  const [fullMonthData, setFullMonthData] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
   
   // Animation variants
   const containerVariants = {
@@ -67,11 +67,9 @@ const AttendanceOverview = () => {
     }
   };
 
-
-  
-  // Fetch employees and their attendance data
+  // Fetch employees and their full month attendance data once on component mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       setIsLoading(true);
       setError(null);
       
@@ -87,66 +85,66 @@ const AttendanceOverview = () => {
         
         // Step 2: Get all employee IDs
         const allEmployeeIds = employeeList.map(emp => emp.employeeId);
-        console.log(`Extracted ${allEmployeeIds.length} employee IDs for attendance fetch:`, allEmployeeIds);
+        console.log(`Extracted ${allEmployeeIds.length} employee IDs for attendance fetch`);
         
-        // Step 3: Fetch attendance data based on active tab
-        const today = new Date();
-        let attendanceResults = {};
+        // Step 3: Fetch full month attendance data for all employees
+        console.log('Fetching full month attendance data for all employees...');
+        const monthData = await fetchMonthAttendance(allEmployeeIds);
         
-        console.log(`Fetching attendance data for tab: ${activeTab}`);
+        console.log('Successfully fetched full month attendance data');
+        setFullMonthData(monthData);
+        setLastRefreshed(new Date());
         
-        if (activeTab === 'today') {
-          // For today's view, use the fetchTodayAttendance function
-          attendanceResults = await fetchTodayAttendance(allEmployeeIds);
-        } else if (activeTab === 'last3days') {
-          // For 3-day view, use the fetchLastNDaysAttendance function
-          attendanceResults = await fetchLastNDaysAttendance(allEmployeeIds, 3);
-        } else if (activeTab === 'last7days') {
-          // For 7-day view, use the fetchLastNDaysAttendance function
-          attendanceResults = await fetchLastNDaysAttendance(allEmployeeIds, 7);
-        } else if (activeTab === 'month') {
-          // For monthly view, use the fetchMonthAttendance function
-          console.log('Fetching monthly attendance data...');
-          attendanceResults = await fetchMonthAttendance(allEmployeeIds);
-        }
-        
-        console.log(`Successfully fetched attendance data for ${Object.keys(attendanceResults).length} employees`);
-        
-        // Normalize attendance data to ensure consistent format
-        // This fixes the issue where some data might be objects and others arrays
-        const normalizedResults = {};
-        
-        Object.keys(attendanceResults).forEach(empId => {
-          const empData = attendanceResults[empId];
-          console.log(`Normalizing data for employee ${empId}:`, empData);
-          
-          // Check if data exists and is not empty
-          if (empData) {
-            // If it's not an array, wrap it in an array
-            if (!Array.isArray(empData)) {
-              console.log(`Converting object to array for employee ${empId}`);
-              normalizedResults[empId] = [empData];
-            } else {
-              normalizedResults[empId] = empData;
-            }
-          } else {
-            // If no data, initialize with empty array
-            normalizedResults[empId] = [];
-          }
-        });
-        
-        console.log('Normalized attendance data:', normalizedResults);
-        setAttendanceData(normalizedResults);
+        // Filter the data based on the active tab
+        const filteredData = filterAttendanceByPeriod(monthData, activeTab);
+        setAttendanceData(filteredData);
       } catch (error) {
-        console.error('Error fetching attendance data:', error);
+        console.error('Error fetching initial data:', error);
         setError('Failed to load attendance data. Please try again later.');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchData();
-  }, [activeTab]);
+    fetchInitialData();
+  }, []); // Empty dependency array means this runs once on mount
+  
+  // Filter the attendance data when the active tab changes
+  useEffect(() => {
+    if (fullMonthData) {
+      console.log(`Filtering attendance data for tab: ${activeTab}`);
+      const filteredData = filterAttendanceByPeriod(fullMonthData, activeTab);
+      setAttendanceData(filteredData);
+    }
+  }, [activeTab, fullMonthData]);
+  
+  // Function to refresh the attendance data
+  const refreshAttendanceData = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    setError(null);
+    
+    try {
+      const allEmployeeIds = employees.map(emp => emp.employeeId);
+      console.log('Refreshing attendance data for all employees...');
+      
+      const monthData = await fetchMonthAttendance(allEmployeeIds);
+      
+      console.log('Successfully refreshed attendance data');
+      setFullMonthData(monthData);
+      setLastRefreshed(new Date());
+      
+      // Filter the data based on the active tab
+      const filteredData = filterAttendanceByPeriod(monthData, activeTab);
+      setAttendanceData(filteredData);
+    } catch (error) {
+      console.error('Error refreshing attendance data:', error);
+      setError('Failed to refresh attendance data. Please try again later.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Filter employees based on search query
   useEffect(() => {
@@ -196,7 +194,7 @@ const AttendanceOverview = () => {
     const empData = attendanceData[employeeId];
     
     // Check if we have attendance data for this employee
-    if (!empData) {
+    if (!empData || (Array.isArray(empData) && empData.length === 0)) {
       console.log(`No attendance data found for employee ${employeeId}`);
       return {
         status: 'Yet to Check In',
@@ -208,23 +206,29 @@ const AttendanceOverview = () => {
     
     console.log(`Attendance data for employee ${employeeId}:`, empData);
     
-    // The data should now be in the format expected by the UI
-    // The processZohoAttendanceData function in attendanceService.js
-    // has already converted it to the right format
-    
     // For today's tab, just return the data as is
     if (activeTab === 'today') {
-      // If it's already in the right format, just return it
+      // If it's an array (which it should be), get the first entry
+      // Our updated fetchMonthAttendance ensures there's at least one record for today
+      if (Array.isArray(empData) && empData.length > 0) {
+        // Find today's record
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const todayRecord = empData.find(record => record.date === todayStr);
+        
+        if (todayRecord) {
+          console.log(`Using today's record for employee ${employeeId}:`, todayRecord);
+          return todayRecord;
+        }
+        
+        // If no specific today record found, use the first one
+        console.log(`Using first record for employee ${employeeId}:`, empData[0]);
+        return empData[0];
+      }
+      
+      // If it's not an array but has status (old format), return it
       if (empData.status) {
         console.log(`Using attendance record for employee ${employeeId}:`, empData);
         return empData;
-      }
-      
-      // If it's an array (old format), get the most recent entry
-      if (Array.isArray(empData) && empData.length > 0) {
-        const record = empData[empData.length - 1];
-        console.log(`Using most recent record for employee ${employeeId}:`, record);
-        return record;
       }
     }
     
@@ -255,7 +259,20 @@ const AttendanceOverview = () => {
       // Count present days
       if (day.status === 'Present') {
         acc.present++;
-        acc.totalHours += parseFloat(day.workingHours || 0);
+        // Handle working hours that might be in different formats
+        let hours = 0;
+        if (day.workingHours) {
+          // Try to parse as float
+          const parsed = parseFloat(day.workingHours);
+          if (!isNaN(parsed)) {
+            hours = parsed;
+          } else if (day.workingHours.includes(':')) {
+            // Handle HH:MM format
+            const [h, m] = day.workingHours.split(':').map(Number);
+            hours = h + (m / 60);
+          }
+        }
+        acc.totalHours += hours;
       }
       // Count weekends and holidays
       else if (day.isWeekend || day.isHoliday) {
@@ -264,6 +281,16 @@ const AttendanceOverview = () => {
       // Count absences and leaves
       else if (day.status === 'Absent' || day.isLeave) {
         acc.absent++;
+      }
+      // Handle 'Yet to Check In' status for today
+      else if (day.status === 'Yet to Check In') {
+        // Don't count as absent if it's today and they haven't checked in yet
+        const today = format(new Date(), 'yyyy-MM-dd');
+        if (day.date === today) {
+          // Don't count it in any category
+        } else {
+          acc.absent++;
+        }
       }
       
       acc.total++;
@@ -348,275 +375,396 @@ const AttendanceOverview = () => {
     <DashboardLayout>
       <div className="container px-4 py-8 max-w-7xl mx-auto">
         <motion.div 
-          className="mb-8 flex items-center gap-4"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          className="flex flex-col space-y-6"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
         >
-          <div className="bg-primary/10 p-3 rounded-lg">
-            <Calendar className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-light mb-2">Attendance Overview</h1>
-            <p className="text-muted-foreground">
-              Track employee attendance and working hours
-            </p>
-          </div>
-        </motion.div>
-        
-        <Tabs defaultValue="today" value={activeTab} onValueChange={handleTabChange} className="mb-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <TabsList>
-              <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
-              <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
-            </TabsList>
-            
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search employees..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          {/* Refresh status and button */}
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              {lastRefreshed ? (
+                <span>Last updated: {format(lastRefreshed, 'dd MMM yyyy, hh:mm a')}</span>
+              ) : (
+                <span>Loading attendance data...</span>
+              )}
             </div>
+            <Button 
+              onClick={refreshAttendanceData} 
+              disabled={isRefreshing || isLoading}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                    <path d="M3 21v-5h5"/>
+                  </svg>
+                  Refresh Data
+                </>
+              )}
+            </Button>
           </div>
           
-          {error ? (
-            <Card className="bg-red-50 border-red-200">
-              <CardContent className="p-6 text-center text-red-600">
-                {error}
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              <TabsContent value="today" className="mt-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xl font-medium">Today's Attendance</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(), 'EEEE, MMMM d, yyyy')}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[250px]">Employee</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Check In</TableHead>
-                            <TableHead>Check Out</TableHead>
-                            <TableHead className="text-right">Working Hours</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredEmployees.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                No employees found matching your search
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            filteredEmployees.map(employee => {
-                              const attendance = getEmployeeAttendance(employee.employeeId);
-                              return (
-                                <TableRow key={employee.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex items-center gap-3">
-                                      <Avatar className="h-8 w-8">
-                                        <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                        <AvatarFallback className="bg-primary/10 text-primary">
-                                          {getInitials(employee.fullName)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                        <div className="font-medium">{employee.fullName}</div>
-                                        <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
-                                      </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(attendance.status)}>
-                                      {attendance.status}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    {attendance.checkInTime ? formatTime(attendance.checkInTime) : 'N/A'}
-                                  </TableCell>
-                                  <TableCell>
-                                    {attendance.checkOutTime ? formatTime(attendance.checkOutTime) : 'N/A'}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {attendance.workingHours} hrs
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+          <motion.div 
+            className="mb-8 flex items-center gap-4"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="bg-primary/10 p-3 rounded-lg">
+              <Calendar className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-light mb-2">Attendance Overview</h1>
+              <p className="text-muted-foreground">
+                Track employee attendance and working hours
+              </p>
+            </div>
+          </motion.div>
+          
+          <Tabs defaultValue="today" value={activeTab} onValueChange={handleTabChange} className="mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <TabsList>
+                <TabsTrigger value="today">Today</TabsTrigger>
+                <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
+                <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
+                <TabsTrigger value="month">Month</TabsTrigger>
+              </TabsList>
               
-              <TabsContent value="last3days" className="mt-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xl font-medium">Last 3 Days Attendance</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {format(subDays(new Date(), 2), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[250px]">Employee</TableHead>
-                            <TableHead>Present</TableHead>
-                            <TableHead>Absent</TableHead>
-                            <TableHead>Holidays</TableHead>
-                            <TableHead className="text-right">Working Hours</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredEmployees.length === 0 ? (
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search employees..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            {error ? (
+              <Card className="bg-red-50 border-red-200">
+                <CardContent className="p-6 text-center text-red-600">
+                  {error}
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <TabsContent value="today" className="mt-0">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xl font-medium">Today's Attendance</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(), 'EEEE, MMMM d, yyyy')}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
                             <TableRow>
-                              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                No employees found matching your search
-                              </TableCell>
+                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Check In</TableHead>
+                              <TableHead>Check Out</TableHead>
+                              <TableHead className="text-right">Working Hours</TableHead>
                             </TableRow>
-                          ) : (
-                            filteredEmployees.map(employee => {
-                              const summary = calculateAttendanceSummary(employee.employeeId);
-                              
-                              return (
-                                <TableRow key={employee.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex items-center gap-3">
-                                      <Avatar className="h-8 w-8">
-                                        <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                        <AvatarFallback className="bg-primary/10 text-primary">
-                                          {getInitials(employee.fullName)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                        <div className="font-medium">{employee.fullName}</div>
-                                        <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredEmployees.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                  No employees found matching your search
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredEmployees.map(employee => {
+                                const attendance = getEmployeeAttendance(employee.employeeId);
+                                return (
+                                  <TableRow key={employee.id}>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
+                                          <AvatarFallback className="bg-primary/10 text-primary">
+                                            {getInitials(employee.fullName)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
+                                        </div>
                                       </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                                      {summary.present} days
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
-                                      {summary.absent} days
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="secondary">
-                                      {summary.holidays} days
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {summary.totalHours} hrs
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="last7days" className="mt-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xl font-medium">Last 7 Days Attendance</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {format(subDays(new Date(), 6), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[250px]">Employee</TableHead>
-                            <TableHead>Present</TableHead>
-                            <TableHead>Absent</TableHead>
-                            <TableHead>Holidays</TableHead>
-                            <TableHead className="text-right">Working Hours</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredEmployees.length === 0 ? (
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant={getStatusBadgeVariant(attendance.status)}>
+                                        {attendance.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      {attendance.checkInTime ? formatTime(attendance.checkInTime) : 'N/A'}
+                                    </TableCell>
+                                    <TableCell>
+                                      {attendance.checkOutTime ? formatTime(attendance.checkOutTime) : 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {attendance.workingHours} hrs
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="last3days" className="mt-0">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xl font-medium">Last 3 Days Attendance</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {format(subDays(new Date(), 2), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
                             <TableRow>
-                              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                No employees found matching your search
-                              </TableCell>
+                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead>Present</TableHead>
+                              <TableHead>Absent</TableHead>
+                              <TableHead>Holidays</TableHead>
+                              <TableHead className="text-right">Working Hours</TableHead>
                             </TableRow>
-                          ) : (
-                            filteredEmployees.map(employee => {
-                              const summary = calculateAttendanceSummary(employee.employeeId);
-                              
-                              return (
-                                <TableRow key={employee.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex items-center gap-3">
-                                      <Avatar className="h-8 w-8">
-                                        <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                        <AvatarFallback className="bg-primary/10 text-primary">
-                                          {getInitials(employee.fullName)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div>
-                                        <div className="font-medium">{employee.fullName}</div>
-                                        <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredEmployees.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                  No employees found matching your search
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredEmployees.map(employee => {
+                                const summary = calculateAttendanceSummary(employee.employeeId);
+                                
+                                return (
+                                  <TableRow key={employee.id}>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
+                                          <AvatarFallback className="bg-primary/10 text-primary">
+                                            {getInitials(employee.fullName)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
+                                        </div>
                                       </div>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
-                                      {summary.present} days
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
-                                      {summary.absent} days
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge variant="secondary">
-                                      {summary.holidays} days
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {summary.totalHours} hrs
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                        {summary.present} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
+                                        {summary.absent} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="secondary">
+                                        {summary.holidays} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {summary.totalHours} hrs
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="last7days" className="mt-0">
+                  {/* Similar to last3days tab */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xl font-medium">Last 7 Days Attendance</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {format(subDays(new Date(), 6), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      {/* Table content similar to last3days */}
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead>Present</TableHead>
+                              <TableHead>Absent</TableHead>
+                              <TableHead>Holidays</TableHead>
+                              <TableHead className="text-right">Working Hours</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredEmployees.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                  No employees found matching your search
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredEmployees.map(employee => {
+                                const summary = calculateAttendanceSummary(employee.employeeId);
+                                
+                                return (
+                                  <TableRow key={employee.id}>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
+                                          <AvatarFallback className="bg-primary/10 text-primary">
+                                            {getInitials(employee.fullName)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                        {summary.present} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
+                                        {summary.absent} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="secondary">
+                                        {summary.holidays} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {summary.totalHours} hrs
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="month" className="mt-0">
+                  {/* Similar to last7days tab but for the full month */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xl font-medium">Monthly Attendance</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {format(subDays(new Date(), 30), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      {/* Table content similar to last7days */}
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead>Present</TableHead>
+                              <TableHead>Absent</TableHead>
+                              <TableHead>Holidays</TableHead>
+                              <TableHead className="text-right">Working Hours</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredEmployees.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                  No employees found matching your search
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredEmployees.map(employee => {
+                                const summary = calculateAttendanceSummary(employee.employeeId);
+                                
+                                return (
+                                  <TableRow key={employee.id}>
+                                    <TableCell className="font-medium">
+                                      <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
+                                          <AvatarFallback className="bg-primary/10 text-primary">
+                                            {getInitials(employee.fullName)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                        {summary.present} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
+                                        {summary.absent} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="secondary">
+                                        {summary.holidays} days
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {summary.totalHours} hrs
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
+        </motion.div>
       </div>
     </DashboardLayout>
   );
