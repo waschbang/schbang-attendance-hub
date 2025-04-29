@@ -1,6 +1,16 @@
 import axios from 'axios';
 import { format, subDays, parseISO, isWeekend as isWeekendFn } from 'date-fns';
 
+// For testing and debugging
+let testAttendanceData = null;
+
+// Set test data for debugging
+export const setTestAttendanceData = (data) => {
+  console.log('Setting test attendance data');
+  testAttendanceData = data;
+  return testAttendanceData;
+};
+
 // Base API URL - Using Vite proxy to avoid CORS issues
 const API_BASE_URL = '/zoho-api/people/api';
 
@@ -47,6 +57,12 @@ export const fetchTodayAttendance = async (employeeIds) => {
   console.log(`Fetching today's attendance for ${employeeIds.length} employees`);
   
   try {
+    // If we already have the data in the expected format (for testing)
+    if (testAttendanceData) {
+      console.log('Using test attendance data');
+      return testAttendanceData;
+    }
+    
     const attendancePromises = employeeIds.map(id => 
       fetchEmployeeAttendance(id, today, today)
     );
@@ -62,7 +78,15 @@ export const fetchTodayAttendance = async (employeeIds) => {
       
       if (result.status === 'fulfilled') {
         console.log(`Successfully fetched attendance for employee ${employeeId}`);
-        attendanceData[employeeId] = result.value[0] || null; // Get first (and only) day
+        // Check if the result is already in the expected format
+        if (result.value && result.value.length > 0) {
+          attendanceData[employeeId] = result.value[0] || null; // Get first (and only) day
+        } else if (typeof result.value === 'object' && !Array.isArray(result.value)) {
+          // Direct API response
+          attendanceData[employeeId] = result.value;
+        } else {
+          attendanceData[employeeId] = null;
+        }
       } else {
         console.error(`Failed to fetch attendance for employee ${employeeId}:`, result.reason);
         console.error('Error details:', result.reason.response ? result.reason.response.data : 'No response data');
@@ -165,6 +189,31 @@ const processZohoAttendanceData = (data, startDate, endDate) => {
     return [];
   }
   
+  console.log('Received data format:', data);
+  
+  // Check if data is already in the expected format (direct API response)
+  // This happens when the data is directly from the API and not processed
+  if (Object.keys(data).length > 0 && data[Object.keys(data)[0]] && 
+      typeof data[Object.keys(data)[0]] === 'object' && 
+      data[Object.keys(data)[0]].hasOwnProperty('date')) {
+    console.log('Data is already in the expected format, returning as is');
+    
+    // Convert the object to an array format for consistency
+    const resultArray = [];
+    for (const empId in data) {
+      if (data.hasOwnProperty(empId)) {
+        // If it's a single day, wrap it in an array
+        if (!Array.isArray(data[empId])) {
+          resultArray.push(data[empId]);
+        } else {
+          // If it's already an array, add each item
+          data[empId].forEach(day => resultArray.push(day));
+        }
+      }
+    }
+    return resultArray;
+  }
+  
   const result = [];
   const currentDate = new Date();
   const currentDateStr = format(currentDate, 'yyyy-MM-dd');
@@ -175,13 +224,13 @@ const processZohoAttendanceData = (data, startDate, endDate) => {
   
   while (dateIterator <= endDateObj) {
     const dateStr = format(dateIterator, 'yyyy-MM-dd');
-    const dateKey = dateStr;
-    const dayData = data[dateKey];
+    const dateFormatted = format(dateIterator, 'dd-MM-yyyy');
+    const dayData = data[dateStr] || data[dateFormatted];
     
     let status = 'Absent';
     let checkInTime = null;
     let checkOutTime = null;
-    let workingHours = '0.00';
+    let workingHours = 0;
     let isHoliday = false;
     let isWeekendDay = isWeekendFn(dateIterator);
     let isLeave = false;
