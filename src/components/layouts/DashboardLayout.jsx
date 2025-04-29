@@ -14,6 +14,7 @@ import {
   LogOut 
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import logo from "../../assets/schbanghashtag.png"
 
 const DashboardLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -90,11 +91,11 @@ const DashboardLayout = ({ children }) => {
           >
             <Link to="/dashboard" className="flex items-center space-x-3">
               <img 
-                src="/schbang-logo.png" 
+                src={logo}
                 alt="Schbang Logo" 
-                className="h-8"
+                className="h-10"
               />
-              <span className="text-xl font-light">People</span>
+              <span className="text-xl font-light">SchbangPeople</span>
             </Link>
           </motion.div>
           

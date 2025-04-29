@@ -7,6 +7,7 @@ import { useToast } from '../components/ui/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { motion } from 'framer-motion';
+import logo from "../assets/schbanghashtag.png";
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -114,9 +115,9 @@ const Login = () => {
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
           >
             <img 
-              src="/schbang-logo.png" 
+              src={logo}
               alt="Schbang Logo" 
-              className="h-14 md:h-16"
+              className="h-24 w-24 md:h-32 md:w-32"
             />
           </motion.div>
           <h1 className="text-4xl font-light mb-6 tracking-tight">SchbangPeople</h1>
