@@ -24,6 +24,22 @@ export default defineConfig(({ mode }) => ({
             proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
           });
         }
+      },
+      '/zoho-oauth': {
+        target: 'https://accounts.zoho.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/zoho-oauth/, ''),
+        secure: false,
+        headers: {
+          'Connection': 'keep-alive'
+        },
+        configure: (proxy, _options) => {
+          proxy.on('proxyRes', function(proxyRes, req, res) {
+            proxyRes.headers['Access-Control-Allow-Origin'] = '*';
+            proxyRes.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS';
+            proxyRes.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Content-Length';
+          });
+        }
       }
     }
   },

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { format, subDays, parseISO, isWeekend as isWeekendFn } from 'date-fns';
+import { getAuthHeader } from './authService';
 
 // Base API URL - Using Vite proxy to avoid CORS issues
 const API_BASE_URL = '/zoho-api/people/api';
@@ -14,6 +15,8 @@ export const fetchEmployeeAttendance = async (employeeId, startDate, endDate) =>
   try {
     console.log(`Fetching attendance for employee ${employeeId} from ${formatDateForZoho(startDate)} to ${formatDateForZoho(endDate)}`);
     
+    const authHeader = await getAuthHeader();
+    
     const response = await axios.get(
       `${API_BASE_URL}/attendance/getUserReport`, {
         params: {
@@ -22,7 +25,7 @@ export const fetchEmployeeAttendance = async (employeeId, startDate, endDate) =>
           empId: employeeId
         },
         headers: {
-          'Authorization': `Bearer 1000.459c3138fd299954c2fdc55e418c9f0a.ccd75873ad6700311a5a2b08f1b88dbd`,
+          ...authHeader,
           'Content-Type': 'application/json'
         }
       }
@@ -30,7 +33,7 @@ export const fetchEmployeeAttendance = async (employeeId, startDate, endDate) =>
     
     console.log('Attendance API response:', response.data);
     
-    const processedData = processZohoAttendanceData(response.data, startDate, endDate);
+    const processedData = processZohoAttendanceData(response.data, employeeId);
     console.log('Processed attendance data:', processedData);
     
     return processedData;
@@ -159,34 +162,139 @@ export const fetchRangeAttendance = async (employeeIds, startDate, endDate) => {
 
 // Process the raw Zoho attendance data into a more usable format
 export const processZohoAttendanceData = (data, employeeId) => {
-  console.log(`Processing Zoho attendance data for employee ID: ${employeeId}`, data);
+  console.log("Main Data", data);
+  
+  // Check if data is already processed (has employeeId, date, etc.)
+  if (data && data.employeeId && data.date) {
+    // Data is already processed, return it as is
+    return data;
+  }
   
   // Handle the case where the data is wrapped in a response object
   if (data && data.response && data.response.result) {
     data = data.response.result;
-    console.log('Extracted data from response.result', data);
   }
   
-  // If no records found or empty data
-  if (!data || !data.length || data.length === 0) {
-    console.log('No attendance records found, returning default absent data');
-    return {
-      date: format(new Date(), 'dd-MM-yyyy'),
-      checkInTime: null,
-      checkOutTime: null,
-      workingHours: '0.00',
-      status: 'Absent',
-      isHoliday: false,
-      holidayName: '',
-      isWeekend: isWeekendFn(new Date()),
-      isLeave: false,
-      leaveType: ''
-    };
+  // Case 1: Date key format - { "2025-04-29": { ... } }
+  if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
+    // Get the first date key (should be the current date)
+    const dateKey = Object.keys(data)[0];
+    const record = data[dateKey];
+    
+    if (record) {
+      // Extract check-in time from FirstIn field using regex to get exact time portion
+      let checkInTime = null;
+      if (record.FirstIn && record.FirstIn !== '-') {
+        const match = record.FirstIn.match(/\d{2}-\d{2}-\d{4}\s+(\d{2}:\d{2}\s+[AP]M)/);
+        checkInTime = match ? match[1] : null;
+      }
+      
+      // Extract check-out time from LastOut field using regex to get exact time portion
+      let checkOutTime = null;
+      if (record.LastOut && record.LastOut !== '-') {
+        const match = record.LastOut.match(/\d{2}-\d{2}-\d{4}\s+(\d{2}:\d{2}\s+[AP]M)/);
+        checkOutTime = match ? match[1] : null;
+      }
+      
+      // Create a properly formatted result object for the UI
+      const result = {
+        employeeId,
+        date: dateKey,
+        checkInTime,
+        checkOutTime,
+        workingHours: record.WorkingHours || record.TotalHours || '00:00',
+        status: record.Status || 'Absent',
+        isHoliday: record.Status && record.Status.toLowerCase().includes('holiday'),
+        holidayName: record.Status && record.Status.toLowerCase().includes('holiday') ? record.Status : '',
+        isWeekend: isWeekendFn(new Date(dateKey)), 
+        isLeave: record.Status && record.Status.toLowerCase().includes('leave'),
+        leaveType: record.Status && record.Status.toLowerCase().includes('leave') ? record.Status : '',
+        shiftName: record.ShiftName || '',
+        shiftStartTime: record.ShiftStartTime || '',
+        shiftEndTime: record.ShiftEndTime || '',
+        location: record.FirstIn_Location || ''
+      };
+      
+      console.log('Mapped attendance data for UI:', result);
+      return result;
+    }
   }
   
-  // Get the first record (most recent)
-  const record = data[0];
-  console.log('Processing record:', record);
+  // Case 3: No data or empty data
+  return {
+    employeeId,
+    date: format(new Date(), 'yyyy-MM-dd'),
+    checkInTime: null,
+    checkOutTime: null,
+    workingHours: '00:00',
+    status: 'Absent',
+    isHoliday: false,
+    holidayName: '',
+    isWeekend: isWeekendFn(new Date()),
+    isLeave: false,
+    leaveType: '',
+    shiftName: '',
+    shiftStartTime: '',
+    shiftEndTime: '',
+    location: ''
+  };
+};
+
+// Helper function to process a record in the new format (with date keys)
+const processRecord = (record, dateKey) => {
+  console.log(`Processing record for date ${dateKey}:`, record);
+  
+  // IMPORTANT: Directly use the Status from the API response
+  // This ensures we show exactly what the API returns
+  // The API returns 'Present' but it's not being preserved in the final output
+  console.log('Status from API:', record.Status);
+  const status = record.Status === 'Present' ? 'Present' : (record.Status || 'Absent');
+  console.log('Using status:', status);
+  
+  // Extract check-in time from FirstIn if available
+  let checkInTime = null;
+  if (record.FirstIn && record.FirstIn !== '-') {
+    // Try to extract just the time part
+    const parts = record.FirstIn.split(' ');
+    if (parts.length >= 3) {
+      checkInTime = `${parts[1]} ${parts[2]}`;
+    }
+  }
+  
+  // Extract check-out time from LastOut if available
+  let checkOutTime = null;
+  if (record.LastOut && record.LastOut !== '-') {
+    const parts = record.LastOut.split(' ');
+    if (parts.length >= 3) {
+      checkOutTime = `${parts[1]} ${parts[2]}`;
+    }
+  }
+  
+  // Log the processed data for debugging
+  const result = {
+    date: dateKey,
+    checkInTime: checkInTime,
+    checkOutTime: checkOutTime,
+    workingHours: record.WorkingHours || record.TotalHours || '00:00',
+    status: status, // Use the exact Status from the API
+    isHoliday: false,
+    holidayName: '',
+    isWeekend: isWeekendFn(new Date()), 
+    isLeave: status.toLowerCase().includes('leave'),
+    leaveType: status.toLowerCase().includes('leave') ? status : '',
+    shiftName: record.ShiftName || '',
+    shiftStartTime: record.ShiftStartTime || '',
+    shiftEndTime: record.ShiftEndTime || '',
+    location: record.FirstIn_Location || ''
+  };
+  
+  console.log('Processed attendance data:', result);
+  return result;
+};
+
+// Helper function to process a record in the old format
+const processOldFormatRecord = (record) => {
+  console.log('Processing record (old format):', record);
   
   // Extract date from FirstIn or use current date
   let dateStr = '';

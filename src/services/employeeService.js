@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAuthHeader } from './authService';
 
 // Base API URL - Using Vite proxy to avoid CORS issues
 const API_BASE_URL = '/zoho-api/people/api';
@@ -38,11 +39,13 @@ export const fetchEmployeesByDepartment = async (departmentId) => {
   console.log(`Fetching employees for department ${departmentId}`);
   
   try {
+    const authHeader = await getAuthHeader();
+    
     const response = await axios.get(
       `${API_BASE_URL}/forms/employee/getRelatedRecords?parentModule=department&id=${departmentId}&sIndex=1&limit=200`,
       {
         headers: {
-          'Authorization': `Bearer 1000.459c3138fd299954c2fdc55e418c9f0a.ccd75873ad6700311a5a2b08f1b88dbd`,
+          ...authHeader,
           'Content-Type': 'application/json'
         }
       }
@@ -130,11 +133,13 @@ export const fetchEmployeeById = async (employeeId) => {
     console.log(`Employee ${employeeId} not in cache, fetching from API`);
     
     // If not in cache, fetch from API
+    const authHeader = await getAuthHeader();
+    
     const response = await axios.get(
       `${API_BASE_URL}/forms/employee/getRecordByID?id=${employeeId}`,
       {
         headers: {
-          'Authorization': `Bearer 1000.459c3138fd299954c2fdc55e418c9f0a.ccd75873ad6700311a5a2b08f1b88dbd`,
+          ...authHeader,
           'Content-Type': 'application/json'
         }
       }

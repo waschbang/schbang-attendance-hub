@@ -36,6 +36,7 @@ import {
   fetchLastNDaysAttendance,
   formatTimeForDisplay
 } from '../services/attendanceService';
+import { fetchMonthAttendance } from '../services/fetchMonthAttendance';
 
 const AttendanceOverview = () => {
   const [employees, setEmployees] = useState([]);
@@ -103,10 +104,39 @@ const AttendanceOverview = () => {
         } else if (activeTab === 'last7days') {
           // For 7-day view, use the fetchLastNDaysAttendance function
           attendanceResults = await fetchLastNDaysAttendance(allEmployeeIds, 7);
+        } else if (activeTab === 'month') {
+          // For monthly view, use the fetchMonthAttendance function
+          console.log('Fetching monthly attendance data...');
+          attendanceResults = await fetchMonthAttendance(allEmployeeIds);
         }
         
         console.log(`Successfully fetched attendance data for ${Object.keys(attendanceResults).length} employees`);
-        setAttendanceData(attendanceResults);
+        
+        // Normalize attendance data to ensure consistent format
+        // This fixes the issue where some data might be objects and others arrays
+        const normalizedResults = {};
+        
+        Object.keys(attendanceResults).forEach(empId => {
+          const empData = attendanceResults[empId];
+          console.log(`Normalizing data for employee ${empId}:`, empData);
+          
+          // Check if data exists and is not empty
+          if (empData) {
+            // If it's not an array, wrap it in an array
+            if (!Array.isArray(empData)) {
+              console.log(`Converting object to array for employee ${empId}`);
+              normalizedResults[empId] = [empData];
+            } else {
+              normalizedResults[empId] = empData;
+            }
+          } else {
+            // If no data, initialize with empty array
+            normalizedResults[empId] = [];
+          }
+        });
+        
+        console.log('Normalized attendance data:', normalizedResults);
+        setAttendanceData(normalizedResults);
       } catch (error) {
         console.error('Error fetching attendance data:', error);
         setError('Failed to load attendance data. Please try again later.');
@@ -162,7 +192,12 @@ const AttendanceOverview = () => {
 
   // Get employee attendance for today
   const getEmployeeAttendance = (employeeId) => {
-    if (!attendanceData[employeeId] || !attendanceData[employeeId].length) {
+    // Get the attendance data for this employee
+    const empData = attendanceData[employeeId];
+    
+    // Check if we have attendance data for this employee
+    if (!empData) {
+      console.log(`No attendance data found for employee ${employeeId}`);
       return {
         status: 'Yet to Check In',
         checkInTime: null,
@@ -171,13 +206,35 @@ const AttendanceOverview = () => {
       };
     }
     
-    // For today's tab, get the most recent entry (should be today)
+    console.log(`Attendance data for employee ${employeeId}:`, empData);
+    
+    // The data should now be in the format expected by the UI
+    // The processZohoAttendanceData function in attendanceService.js
+    // has already converted it to the right format
+    
+    // For today's tab, just return the data as is
     if (activeTab === 'today') {
-      return attendanceData[employeeId][attendanceData[employeeId].length - 1];
+      // If it's already in the right format, just return it
+      if (empData.status) {
+        console.log(`Using attendance record for employee ${employeeId}:`, empData);
+        return empData;
+      }
+      
+      // If it's an array (old format), get the most recent entry
+      if (Array.isArray(empData) && empData.length > 0) {
+        const record = empData[empData.length - 1];
+        console.log(`Using most recent record for employee ${employeeId}:`, record);
+        return record;
+      }
     }
     
-    // For multi-day tabs, we'll handle this differently in the render method
-    return attendanceData[employeeId];
+    // For multi-day tabs, return the data as is if it's an array
+    if (Array.isArray(empData)) {
+      return empData;
+    }
+    
+    // If we reach here, just return the data as is
+    return empData;
   };
 
   // Calculate attendance summary for multi-day views
@@ -313,6 +370,7 @@ const AttendanceOverview = () => {
               <TabsTrigger value="today">Today</TabsTrigger>
               <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
               <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
+              <TabsTrigger value="month">Month</TabsTrigger>
             </TabsList>
             
             <div className="relative w-full sm:w-64">
