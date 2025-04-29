@@ -34,8 +34,7 @@ import {
   fetchEmployeeAttendance,
   fetchTodayAttendance,
   fetchLastNDaysAttendance,
-  formatTimeForDisplay,
-  setTestAttendanceData
+  formatTimeForDisplay
 } from '../services/attendanceService';
 
 const AttendanceOverview = () => {
@@ -46,7 +45,6 @@ const AttendanceOverview = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
-  const [useTestData, setUseTestData] = useState(false);
   
   // Animation variants
   const containerVariants = {
@@ -68,30 +66,7 @@ const AttendanceOverview = () => {
     }
   };
 
-  // Function to load test data
-  const loadTestData = () => {
-    setIsLoading(true);
-    try {
-      // Parse the test data from JSON if it's a string
-      const testData = typeof window.testAttendanceJSON === 'string' 
-        ? JSON.parse(window.testAttendanceJSON)
-        : window.testAttendanceJSON;
-      
-      console.log('Loading test data:', testData);
-      
-      // Set the test data in the service
-      setTestAttendanceData(testData);
-      setUseTestData(true);
-      
-      // Trigger a re-fetch
-      setActiveTab(prev => prev); // This will re-trigger the useEffect
-    } catch (error) {
-      console.error('Error loading test data:', error);
-      setError('Failed to load test data. Please check the console for details.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
   
   // Fetch employees and their attendance data
   useEffect(() => {
@@ -141,7 +116,7 @@ const AttendanceOverview = () => {
     };
 
     fetchData();
-  }, [activeTab, useTestData]);
+  }, [activeTab]);
 
   // Filter employees based on search query
   useEffect(() => {
@@ -339,51 +314,6 @@ const AttendanceOverview = () => {
               <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
               <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
             </TabsList>
-            
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="ml-2 hidden sm:flex"
-              onClick={() => {
-                // Store the test data in window object
-                window.testAttendanceJSON = JSON.stringify({
-                  "SDSPL2726": {
-                    "date": "29-04-2025",
-                    "checkInTime": "10:20 AM",
-                    "checkOutTime": null,
-                    "workingHours": "0.00",
-                    "status": "Present",
-                    "isHoliday": false,
-                    "holidayName": "",
-                    "isWeekend": false,
-                    "isLeave": false,
-                    "leaveType": "",
-                    "rawData": {
-                      "ShiftStartTime": "10:30 AM",
-                      "Status": "Present",
-                      "FirstIn_Building": "-",
-                      "Early_In": "00:10",
-                      "LastOut_Location": "-",
-                      "ShiftName": "Shift 1",
-                      "FirstIn_Latitude": 26.9056313,
-                      "FirstIn": "29-04-2025 10:20 AM",
-                      "LastOut_Latitude": "-",
-                      "FirstIn_Longitude": 75.8014724,
-                      "FirstIn_Location": "Yudhishthir Marg, Kachi Basti, Bais Godam, Jaipur, Jaipur Municipal Corporation, Jaipur Tehsil, Jaipur, Rajasthan, 302001, India",
-                      "TotalHours": "00:00",
-                      "LastOut_Longitude": "-",
-                      "WorkingHours": "00:00",
-                      "LastOut_Building": "-",
-                      "LastOut": "-",
-                      "ShiftEndTime": "07:30 PM"
-                    }
-                  }
-                });
-                loadTestData();
-              }}
-            >
-              Load Test Data
-            </Button>
             
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />

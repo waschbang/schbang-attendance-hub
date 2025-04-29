@@ -1,16 +1,6 @@
 import axios from 'axios';
 import { format, subDays, parseISO, isWeekend as isWeekendFn } from 'date-fns';
 
-// For testing and debugging
-let testAttendanceData = null;
-
-// Set test data for debugging
-export const setTestAttendanceData = (data) => {
-  console.log('Setting test attendance data');
-  testAttendanceData = data;
-  return testAttendanceData;
-};
-
 // Base API URL - Using Vite proxy to avoid CORS issues
 const API_BASE_URL = '/zoho-api/people/api';
 
@@ -57,45 +47,32 @@ export const fetchTodayAttendance = async (employeeIds) => {
   console.log(`Fetching today's attendance for ${employeeIds.length} employees`);
   
   try {
-    // If we already have the data in the expected format (for testing)
-    if (testAttendanceData) {
-      console.log('Using test attendance data');
-      return testAttendanceData;
-    }
-    
     const attendancePromises = employeeIds.map(id => 
       fetchEmployeeAttendance(id, today, today)
+        .then(data => {
+          // Process the raw Zoho data into our expected format
+          const processedData = processZohoAttendanceData(data, id);
+          return { id, data: processedData };
+        })
+        .catch(error => {
+          console.error(`Error fetching attendance for employee ${id}:`, error);
+          return { id, data: null };
+        })
     );
     
-    console.log(`Created ${attendancePromises.length} attendance fetch promises`);
-    const attendanceResults = await Promise.allSettled(attendancePromises);
+    const attendanceResults = await Promise.all(attendancePromises);
     
-    // Process results, including handling of rejected promises
-    const attendanceData = {};
+    // Process the results into a map of employee ID to attendance data
+    const attendanceMap = {};
     
-    attendanceResults.forEach((result, index) => {
-      const employeeId = employeeIds[index];
-      
-      if (result.status === 'fulfilled') {
-        console.log(`Successfully fetched attendance for employee ${employeeId}`);
-        // Check if the result is already in the expected format
-        if (result.value && result.value.length > 0) {
-          attendanceData[employeeId] = result.value[0] || null; // Get first (and only) day
-        } else if (typeof result.value === 'object' && !Array.isArray(result.value)) {
-          // Direct API response
-          attendanceData[employeeId] = result.value;
-        } else {
-          attendanceData[employeeId] = null;
-        }
-      } else {
-        console.error(`Failed to fetch attendance for employee ${employeeId}:`, result.reason);
-        console.error('Error details:', result.reason.response ? result.reason.response.data : 'No response data');
-        attendanceData[employeeId] = null; // Set null for failed requests
+    attendanceResults.forEach(({ id, data }) => {
+      if (data) {
+        attendanceMap[id] = data;
       }
     });
     
-    console.log('Compiled attendance data for all employees:', attendanceData);
-    return attendanceData;
+    console.log('Compiled attendance data for all employees:', attendanceMap);
+    return attendanceMap;
   } catch (error) {
     console.error('Error fetching today\'s attendance:', error);
     console.error('Error details:', error.response ? error.response.data : 'No response data');
@@ -180,9 +157,123 @@ export const fetchRangeAttendance = async (employeeIds, startDate, endDate) => {
   }
 };
 
-// Process the attendance data from Zoho API (original format)
-const processZohoAttendanceData = (data, startDate, endDate) => {
-  console.log('Processing Zoho attendance data for date range:', { startDate, endDate });
+// Process the raw Zoho attendance data into a more usable format
+export const processZohoAttendanceData = (data, employeeId) => {
+  console.log(`Processing Zoho attendance data for employee ID: ${employeeId}`, data);
+  
+  // Handle the case where the data is wrapped in a response object
+  if (data && data.response && data.response.result) {
+    data = data.response.result;
+    console.log('Extracted data from response.result', data);
+  }
+  
+  // If no records found or empty data
+  if (!data || !data.length || data.length === 0) {
+    console.log('No attendance records found, returning default absent data');
+    return {
+      date: format(new Date(), 'dd-MM-yyyy'),
+      checkInTime: null,
+      checkOutTime: null,
+      workingHours: '0.00',
+      status: 'Absent',
+      isHoliday: false,
+      holidayName: '',
+      isWeekend: isWeekendFn(new Date()),
+      isLeave: false,
+      leaveType: ''
+    };
+  }
+  
+  // Get the first record (most recent)
+  const record = data[0];
+  console.log('Processing record:', record);
+  
+  // Extract date from FirstIn or use current date
+  let dateStr = '';
+  let dateObj = new Date();
+  
+  if (record.FirstIn && record.FirstIn !== '-') {
+    // Try to extract date from FirstIn (format: DD-MM-YYYY HH:MM AM/PM)
+    const dateTimeParts = record.FirstIn.split(' ');
+    if (dateTimeParts.length >= 1) {
+      dateStr = dateTimeParts[0];
+      // Try to parse the date
+      try {
+        // Check if date is in DD-MM-YYYY format
+        if (dateStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
+          const [day, month, year] = dateStr.split('-');
+          dateObj = new Date(year, month - 1, day);
+        } else {
+          // Assume it's in YYYY-MM-DD format
+          dateObj = parseISO(dateStr);
+        }
+      } catch (error) {
+        console.error('Error parsing date:', error);
+        // Use current date as fallback
+        dateObj = new Date();
+      }
+    }
+  }
+  
+  // Format the date as DD-MM-YYYY
+  dateStr = format(dateObj, 'dd-MM-yyyy');
+  
+  // Extract check-in time from FirstIn
+  let checkInTime = null;
+  if (record.FirstIn && record.FirstIn !== '-') {
+    const timeMatch = record.FirstIn.match(/\d{2}:\d{2}\s*[AP]M/i);
+    if (timeMatch) {
+      checkInTime = timeMatch[0];
+    }
+  }
+  
+  // Extract check-out time from LastOut
+  let checkOutTime = null;
+  if (record.LastOut && record.LastOut !== '-') {
+    const timeMatch = record.LastOut.match(/\d{2}:\d{2}\s*[AP]M/i);
+    if (timeMatch) {
+      checkOutTime = timeMatch[0];
+    }
+  }
+  
+  // Determine status
+  let status = 'Absent';
+  if (record.Status) {
+    status = record.Status;
+  } else if (checkInTime) {
+    status = 'Present';
+  }
+  
+  // Process working hours
+  let workingHours = '0.00';
+  if (record.WorkingHours && record.WorkingHours !== '-') {
+    workingHours = record.WorkingHours;
+  } else if (record.TotalHours && record.TotalHours !== '-') {
+    workingHours = record.TotalHours;
+  }
+  
+  // Create the processed record
+  const processedRecord = {
+    date: dateStr,
+    checkInTime,
+    checkOutTime,
+    workingHours,
+    status,
+    isHoliday: false, // We don't have this info from the API
+    holidayName: '',
+    isWeekend: isWeekendFn(dateObj),
+    isLeave: status.toLowerCase().includes('leave'),
+    leaveType: status.toLowerCase().includes('leave') ? status : '',
+    rawData: record // Keep the original data for reference
+  };
+  
+  console.log('Processed record:', processedRecord);
+  return processedRecord;
+};
+
+// Process the attendance data from the API
+export const processAttendanceData = (data, startDate, endDate) => {
+  console.log('Processing attendance data', { data, startDate, endDate });
   
   if (!data) {
     console.warn('No attendance data received from Zoho API');
