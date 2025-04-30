@@ -34,11 +34,45 @@ export const fetchAllEmployees = async () => {
 //   return localStorage.getItem('auth_token');
 // };
 
-// Fetch employees by department
+// Fetch employees by department or all employees if departmentId is null
 export const fetchEmployeesByDepartment = async (departmentId) => {
+  // If departmentId is null, fetch all employees from the main department
+  if (departmentId === null) {
+    console.log('Fetching all employees');
+    
+    // Check if we have a cached list of all employees
+    if (employeesCache.allEmployees) {
+      console.log('Returning all employees from cache');
+      return employeesCache.allEmployees;
+    }
+    
+    // For now, just fetch from the main department
+    // In a real implementation, you might need to fetch from multiple departments
+    const mainDepartmentId = '612996000034607912'; // Main department ID
+    console.log(`Using main department ID: ${mainDepartmentId}`);
+    
+    try {
+      const employees = await fetchEmployeesByDepartment(mainDepartmentId);
+      console.log(`Successfully fetched ${employees.length} employees`);
+      
+      // Cache the result
+      employeesCache.allEmployees = employees;
+      return employees;
+    } catch (error) {
+      console.error('Error fetching all employees:', error);
+      throw error;
+    }
+  }
+  
   console.log(`Fetching employees for department ${departmentId}`);
   
   try {
+    // Check if we have a cached list for this department
+    if (employeesCache.byDepartment && employeesCache.byDepartment[departmentId]) {
+      console.log(`Returning employees for department ${departmentId} from cache`);
+      return employeesCache.byDepartment[departmentId];
+    }
+    
     const authHeader = await getAuthHeader();
     
     const response = await axios.get(

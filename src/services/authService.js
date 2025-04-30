@@ -22,9 +22,21 @@ let refreshTimer = null;
  * Refresh the access token
  * @returns {Promise<string>} The new access token
  */
-export const refreshAccessToken = async () => {
+/**
+ * Refresh the access token with retry logic for rate limiting
+ * @param {number} retryCount - Number of retries attempted (default: 0)
+ * @param {number} delay - Delay before retrying in ms (default: 1000)
+ * @returns {Promise<string>} The new access token
+ */
+export const refreshAccessToken = async (retryCount = 0, delay = 1000) => {
   try {
-    console.log('Refreshing Zoho access token...');
+    console.log(`Refreshing Zoho access token... (Attempt ${retryCount + 1})`);
+    
+    // If we've already retried too many times, use the existing token if it exists
+    if (retryCount >= 3 && tokenData.accessToken) {
+      console.warn(`Too many refresh attempts. Using existing token until rate limit clears.`);
+      return tokenData.accessToken;
+    }
     
     const formData = new URLSearchParams();
     formData.append('client_id', ZOHO_AUTH_CONFIG.clientId);
@@ -49,6 +61,8 @@ export const refreshAccessToken = async () => {
     tokenData = {
       accessToken: access_token,
       expiresAt: expiresAt,
+      rateLimited: false,
+      lastRefresh: Date.now()
     };
     
     // Schedule the next refresh
@@ -57,7 +71,41 @@ export const refreshAccessToken = async () => {
     return access_token;
   } catch (error) {
     console.error('Error refreshing access token:', error);
-    console.error('Error details:', error.response ? error.response.data : 'No response data');
+    const errorData = error.response ? error.response.data : 'No response data';
+    console.error('Error details:', errorData);
+    
+    // Check if this is a rate limiting error
+    const isRateLimitError = 
+      errorData && 
+      (errorData.error === 'Access Denied') && 
+      errorData.error_description && 
+      errorData.error_description.includes('too many requests');
+    
+    if (isRateLimitError) {
+      console.warn(`Rate limit detected. Setting rate limited flag.`);
+      tokenData.rateLimited = true;
+      
+      // If we still have a token, use it until we can refresh
+      if (tokenData.accessToken) {
+        console.warn(`Using existing token while rate limited.`);
+        return tokenData.accessToken;
+      }
+      
+      // Retry with exponential backoff if we don't have a token
+      if (retryCount < 3) {
+        const retryDelay = delay * Math.pow(2, retryCount);
+        console.log(`Will retry in ${retryDelay}ms (attempt ${retryCount + 1} of 3)`);
+        
+        return new Promise(resolve => {
+          setTimeout(async () => {
+            const token = await refreshAccessToken(retryCount + 1, delay);
+            resolve(token);
+          }, retryDelay);
+        });
+      }
+    }
+    
+    // For other errors or if retries are exhausted, propagate the error
     throw error;
   }
 };

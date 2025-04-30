@@ -93,13 +93,17 @@ const processDateRecord = (record, dateKey, employeeId) => {
 };
 
 /**
- * Fetch attendance data for all employees for the past month
+ * Fetch attendance data for employees for a specified date range
  * This function fetches data once and returns it in a format that can be filtered locally
  * @param {Array} employeeIds - Array of employee IDs to fetch attendance for
+ * @param {string} [customStartDate] - Optional start date in DD-MM-YYYY format
+ * @param {string} [customEndDate] - Optional end date in DD-MM-YYYY format
  * @returns {Object} - Object with employee IDs as keys and arrays of attendance records as values
  */
-export const fetchMonthAttendance = async (employeeIds) => {
+export const fetchMonthAttendance = async (employeeIds, customStartDate, customEndDate) => {
   console.log('fetchMonthAttendance called with employee IDs:', employeeIds);
+  console.log('Custom date range:', customStartDate, 'to', customEndDate);
+  
   // First, ensure we have a fresh token
   try {
     await refreshAccessToken();
@@ -107,17 +111,24 @@ export const fetchMonthAttendance = async (employeeIds) => {
     console.error('Error refreshing token:', tokenError);
   }
   
-  // Get current date and format it correctly
-  const today = new Date();
+  let startDateStr, endDateStr;
   
-  // Calculate the start date (30 days ago)
-  const startDate = subDays(today, 30); // Get data for the last 30 days
-  
-  // Use the exact date format that works in the direct URL
-  const startDateStr = formatDateForZoho(startDate);
-  const endDateStr = formatDateForZoho(today);
-  
-  console.log('Date range for API request:', startDateStr, 'to', endDateStr);
+  // If custom dates are provided, use them directly
+  if (customStartDate && customEndDate) {
+    startDateStr = customStartDate;
+    endDateStr = customEndDate;
+    console.log('Using custom date range for API request:', startDateStr, 'to', endDateStr);
+  } else {
+    // Otherwise use the default 30 day range
+    const today = new Date();
+    const startDate = subDays(today, 30); // Get data for the last 30 days
+    
+    // Use the exact date format that works in the direct URL
+    startDateStr = formatDateForZoho(startDate);
+    endDateStr = formatDateForZoho(today);
+    
+    console.log('Using default date range for API request:', startDateStr, 'to', endDateStr);
+  }
   
   // Date range for API request
   // startDate: startDateStr
