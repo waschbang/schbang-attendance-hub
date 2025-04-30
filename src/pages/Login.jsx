@@ -88,7 +88,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-black p-4 relative">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-black p-2 sm:p-4 relative">
       <motion.div 
         className="absolute top-6 right-6"
         initial={{ opacity: 0 }}
@@ -120,15 +120,15 @@ const Login = () => {
               className="h-24 w-24 md:h-32 md:w-32"
             />
           </motion.div>
-          <h1 className="text-4xl font-light mb-6 tracking-tight">SchbangPeople</h1>
-          <p className="text-muted-foreground text-lg font-light">
+          <h1 className="text-3xl sm:text-4xl font-light mb-4 sm:mb-6 tracking-tight">SchbangPeople</h1>
+          <p className="text-muted-foreground text-base sm:text-lg font-light">
             Employee Attendance Portal
           </p>
         </motion.div>
         
         <motion.form 
           onSubmit={handleLogin} 
-          className="space-y-10 px-4 md:px-0"
+          className="space-y-6 sm:space-y-10 px-2 sm:px-4 md:px-0 w-full"
           variants={containerVariants}
         >
           <motion.div 
@@ -140,7 +140,7 @@ const Login = () => {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-14 bg-transparent border-x-0 border-t-0 border-b border-gray-200 dark:border-gray-800 rounded-none px-1 text-lg font-light transition-all duration-300 focus:border-black dark:focus:border-white"
+              className="h-12 sm:h-14 bg-transparent border-x-0 border-t-0 border-b border-gray-200 dark:border-gray-800 rounded-none px-1 text-base sm:text-lg font-light transition-all duration-300 focus:border-black dark:focus:border-white"
               required
             />
           </motion.div>
@@ -154,7 +154,7 @@ const Login = () => {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-14 bg-transparent border-x-0 border-t-0 border-b border-gray-200 dark:border-gray-800 rounded-none px-1 text-lg font-light pr-10 transition-all duration-300 focus:border-black dark:focus:border-white"
+              className="h-12 sm:h-14 bg-transparent border-x-0 border-t-0 border-b border-gray-200 dark:border-gray-800 rounded-none px-1 text-base sm:text-lg font-light pr-10 transition-all duration-300 focus:border-black dark:focus:border-white"
               required
             />
             <button
@@ -167,7 +167,7 @@ const Login = () => {
           </motion.div>
           
           <motion.div 
-            className="flex items-center justify-between"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0"
             variants={itemVariants}
           >
             <div className="flex items-center space-x-2">
@@ -194,7 +194,7 @@ const Login = () => {
           <motion.div variants={itemVariants}>
             <Button
               type="submit"
-              className="w-full h-14 mt-8 bg-black dark:bg-white text-white dark:text-black rounded-full font-light transition-all duration-300 hover:opacity-90 hover:scale-[0.99] active:scale-[0.97]"
+              className="w-full h-12 sm:h-14 mt-4 sm:mt-8 bg-black dark:bg-white text-white dark:text-black rounded-full font-light transition-all duration-300 hover:opacity-90 hover:scale-[0.99] active:scale-[0.97]"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign in"}

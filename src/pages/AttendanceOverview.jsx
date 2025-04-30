@@ -420,13 +420,14 @@ const AttendanceOverview = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <motion.div
-              className="relative w-24 h-24 mb-6"
-              animate={{ rotate: 360 }}
+            <motion.div 
+              animate={{ 
+                rotate: 360 
+              }}
               transition={{ 
                 repeat: Infinity, 
                 duration: 2,
-                ease: "linear" 
+                ease: "linear"
               }}
             >
               <Loader2 className="h-24 w-24 text-primary" />
@@ -534,7 +535,7 @@ const AttendanceOverview = () => {
           <Tabs defaultValue="today" value={activeTab} onValueChange={handleTabChange} className="mb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div className="flex flex-col gap-1">
-                <TabsList>
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
                   <TabsTrigger value="today">Today</TabsTrigger>
                   <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
                   <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
@@ -579,7 +580,7 @@ const AttendanceOverview = () => {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Check In</TableHead>
                               <TableHead>Check Out</TableHead>
@@ -602,15 +603,15 @@ const AttendanceOverview = () => {
                                     onClick={() => handleEmployeeClick(employee.employeeId)}
                                   >
                                     <TableCell className="font-medium">
-                                      <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
+                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                                           <AvatarImage src={employee.photo} alt={employee.fullName} />
                                           <AvatarFallback className="bg-primary/10 text-primary">
                                             {getInitials(employee.fullName)}
                                           </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
                                           <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
                                         </div>
                                       </div>
@@ -650,11 +651,10 @@ const AttendanceOverview = () => {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
                               <TableHead className="text-center">Present</TableHead>
                               <TableHead className="text-center">Absent</TableHead>
                               <TableHead className="text-center">Holidays</TableHead>
-
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -675,26 +675,26 @@ const AttendanceOverview = () => {
                                     onClick={() => handleEmployeeClick(employee.employeeId)}
                                   >
                                     <TableCell className="font-medium">
-                                      <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
+                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                                           <AvatarImage src={employee.photo} alt={employee.fullName} />
                                           <AvatarFallback className="bg-primary/10 text-primary">
                                             {getInitials(employee.fullName)}
                                           </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
                                           <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
                                         </div>
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[80px] justify-center inline-flex">
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
                                         {summary.present} days
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[80px] justify-center inline-flex">
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
                                         {summary.absent} days
                                       </Badge>
                                     </TableCell>
@@ -703,7 +703,6 @@ const AttendanceOverview = () => {
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
-
                                   </TableRow>
                                 );
                               })
@@ -730,11 +729,10 @@ const AttendanceOverview = () => {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
                               <TableHead className="text-center">Present</TableHead>
                               <TableHead className="text-center">Absent</TableHead>
                               <TableHead className="text-center">Holidays</TableHead>
-
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -755,26 +753,26 @@ const AttendanceOverview = () => {
                                     onClick={() => handleEmployeeClick(employee.employeeId)}
                                   >
                                     <TableCell className="font-medium">
-                                      <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
+                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                                           <AvatarImage src={employee.photo} alt={employee.fullName} />
                                           <AvatarFallback className="bg-primary/10 text-primary">
                                             {getInitials(employee.fullName)}
                                           </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
                                           <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
                                         </div>
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[80px] justify-center inline-flex">
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
                                         {summary.present} days
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[80px] justify-center inline-flex">
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
                                         {summary.absent} days
                                       </Badge>
                                     </TableCell>
@@ -783,7 +781,6 @@ const AttendanceOverview = () => {
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
-
                                   </TableRow>
                                 );
                               })
@@ -810,11 +807,10 @@ const AttendanceOverview = () => {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[250px]">Employee</TableHead>
+                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
                               <TableHead className="text-center">Present</TableHead>
                               <TableHead className="text-center">Absent</TableHead>
                               <TableHead className="text-center">Holidays</TableHead>
-
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -835,26 +831,26 @@ const AttendanceOverview = () => {
                                     onClick={() => handleEmployeeClick(employee.employeeId)}
                                   >
                                     <TableCell className="font-medium">
-                                      <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
+                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
                                           <AvatarImage src={employee.photo} alt={employee.fullName} />
                                           <AvatarFallback className="bg-primary/10 text-primary">
                                             {getInitials(employee.fullName)}
                                           </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                          <div className="font-medium">{employee.fullName}</div>
+                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
                                           <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
                                         </div>
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[80px] justify-center inline-flex">
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
                                         {summary.present} days
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[80px] justify-center inline-flex">
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
                                         {summary.absent} days
                                       </Badge>
                                     </TableCell>

@@ -1,4 +1,4 @@
-import { format, subDays, isWeekend as isWeekendFn, parseISO } from 'date-fns';
+import { format, subDays, isWeekend as isWeekendFn, parseISO, isSameDay, isBefore, isAfter } from 'date-fns';
 import axios from 'axios';
 import { getAuthHeader, refreshAccessToken } from './authService';
 import { processZohoAttendanceData } from './attendanceService';
@@ -147,8 +147,6 @@ export const fetchMonthAttendance = async (employeeIds, customStartDate, customE
         
         console.log(`API request for employee ${employeeId}:`, requestParams);
         
-        // Make API request for employee with the date parameters
-        
         // Check if we're in development or production mode
         const isDevelopment = import.meta.env.DEV;
         
@@ -157,6 +155,10 @@ export const fetchMonthAttendance = async (employeeIds, customStartDate, customE
         const apiUrl = isDevelopment
           ? getApiUrl('/attendance/getUserReport')
           : `${getApiUrl()}?path=attendance/getUserReport`;
+        
+        console.log(`Using API URL for employee ${employeeId}:`, apiUrl);
+        
+        // Make API request for employee with the date parameters
         
         const response = await axios.get(apiUrl, {
             params: requestParams,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { 
   Table,
@@ -442,118 +441,33 @@ const Reports = () => {
           const hasError = employeeData && employeeData.error;
           
           if (hasError) {
-            // Handle specific employee data fetch error
-            console.warn(`Error fetching data for ${employee.name}: ${employeeData.errorMessage}`);
-            
-            // Show a toast notification but continue with export
+            // Handle specific employee data fetch error - abort export
+            const errorMsg = employeeData.errorMessage || 'Failed to fetch attendance data';
             toast({
-              title: `Issue with ${employee.name}`,
-              description: 'Could not retrieve complete data. Try again later.',
-              variant: 'warning',
-              duration: 3000,
+              title: 'Export Failed',
+              description: `Failed to fetch data for ${employee.name}: ${errorMsg}`,
+              variant: 'destructive',
+              duration: 5000,
             });
-            
-            // Continue with empty records for this employee
-            allAttendanceData[employee.id] = [];
+            setExportLoading(false);
+            return;
           } else {
             setError(`Processing employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
             
             // Store the employee's records in allAttendanceData
             allAttendanceData[employee.id] = freshAttendanceData[employee.id] || [];
           }
-          
-          setError(`Processing employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
-          
-          // Create a sheet for this employee with daily attendance records
-          const employeeRecords = allAttendanceData[employee.id] || [];
-          
-          // Sort records by date in ascending order
-          const sortedRecords = employeeRecords
-            .filter(record => {
-              try {
-                const recordDate = new Date(record.date);
-                return !isNaN(recordDate.getTime()); // Filter out invalid dates
-              } catch (e) {
-                console.error('Invalid date in record:', record);
-                return false;
-              }
-            })
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-          
-          // Prepare data for this employee's sheet
-          const employeeSheetData = [employeeSheetHeaders];
-          
-          // Add each attendance record
-          sortedRecords.forEach(record => {
-            const recordDate = new Date(record.date);
-            
-            // Calculate working hours if both check-in and check-out times exist
-            let workingHours = '-';
-            if (record.checkInTime && record.checkOutTime) {
-              // Simple calculation (assumes format is HH:MM)
-              const checkIn = record.checkInTime.split(':');
-              const checkOut = record.checkOutTime.split(':');
-              
-              if (checkIn.length === 2 && checkOut.length === 2) {
-                const checkInHours = parseInt(checkIn[0]);
-                const checkInMinutes = parseInt(checkIn[1]);
-                const checkOutHours = parseInt(checkOut[0]);
-                const checkOutMinutes = parseInt(checkOut[1]);
-                
-                // Total minutes
-                let totalMinutes = (checkOutHours * 60 + checkOutMinutes) - (checkInHours * 60 + checkInMinutes);
-                if (totalMinutes < 0) totalMinutes += 24 * 60; // Handling overnight shifts
-                
-                // Format as hours:minutes
-                const hours = Math.floor(totalMinutes / 60);
-                const minutes = totalMinutes % 60;
-                workingHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
-              }
-            }
-            
-            // Get day of week
-            const dayOfWeek = format(recordDate, 'EEEE');
-            
-            // Determine status
-            const status = record.status || 
-              (record.checkInTime ? 'Present' : 
-                (record.isLeave ? 'Leave' : 
-                  (record.isHoliday ? 'Holiday' : 
-                    (record.isWeekend ? 'Weekend' : 'Absent'))));
-            
-            // Add to sheet data
-            employeeSheetData.push([
-              format(recordDate, 'dd-MM-yyyy'),
-              dayOfWeek,
-              status,
-              record.checkInTime || '-',
-              record.checkOutTime || '-',
-              workingHours,
-              record.notes || ''
-            ]);
-          });
-          
-          // Create sheet name (sanitize to comply with Excel restrictions)
-          let sheetName = `${employee.name} (${employee.id})`;
-          // Excel sheet names are limited to 31 chars and can't contain [ ] * ? / \ chars
-          sheetName = sheetName
-            .replace(/[\[\]\*\?\/\\]/g, '_')
-            .substr(0, 31);
-          
-          // Create worksheet
-          const ws = XLSX.utils.aoa_to_sheet(employeeSheetData);
-          
-          // Add to workbook
-          try {
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-          } catch (e) {
-            // If there's an error with the sheet name, try a simpler one
-            console.error('Error adding sheet:', e);
-            XLSX.utils.book_append_sheet(wb, ws, `Employee ${i+1}`);
-          }
         } catch (err) {
-          // Handle error for this employee
+          // Handle error for this employee - abort export
           console.error(`Error fetching data for employee ${employee.name}:`, err);
+          toast({
+            title: 'Error',
+            description: `Failed to fetch data for ${employee.name}: ${err.message || err}`,
+            variant: 'destructive',
+            duration: 5000,
+          });
+          setExportLoading(false);
+          return;
         }
       }
       // Now use allAttendanceData for summary and sheet creation
