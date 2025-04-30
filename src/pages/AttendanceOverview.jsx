@@ -69,7 +69,7 @@ const AttendanceOverview = () => {
     }
   };
 
-  // Fetch employees and their full month attendance data once on component mount
+  // Fetch employees and their full month attendance data once on component mount and every 10 minutes
   useEffect(() => {
     const fetchInitialData = async () => {
       setIsLoading(true);
@@ -88,12 +88,55 @@ const AttendanceOverview = () => {
         
         // Step 3: Fetch full month attendance data for all employees
         const monthData = await fetchMonthAttendance(allEmployeeIds);
+        console.log('Fetched full month attendance data:', monthData);
         setFullMonthData(monthData);
         setLastRefreshed(new Date());
         
-        // Filter the data based on the active tab
-        const filteredData = filterAttendanceByPeriod(monthData, activeTab);
-        setAttendanceData(filteredData);
+        // Filter attendance data based on active tab
+        const filterAttendanceDataByTab = (data) => {
+          if (!data) {
+            console.log('No data to filter');
+            return;
+          }
+          
+          console.log('Filtering attendance data by tab:', activeTab);
+          console.log('Full month data:', data);
+          
+          let today = new Date();
+          let startDate;
+          
+          if (activeTab === 'today') {
+            startDate = today;
+          } else if (activeTab === 'last3days') {
+            startDate = subDays(today, 2);
+          } else if (activeTab === 'last7days') {
+            startDate = subDays(today, 6);
+          } else if (activeTab === 'month') {
+            // For month tab, simply use the last 30 days
+            startDate = subDays(today, 29); // 29 days back + today = 30 days
+          }
+          
+          // Check if startDate is defined (for safety)
+          if (!startDate) {
+            console.warn('Start date is undefined, defaulting to today');
+            startDate = today;
+          }
+          
+          // Set the year to the current year to match with API data
+          const currentYear = new Date().getFullYear();
+          startDate = new Date(currentYear, startDate.getMonth(), startDate.getDate());
+          today = new Date(currentYear, today.getMonth(), today.getDate());
+          
+          console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(today, 'yyyy-MM-dd'));
+          console.log('Using current year:', currentYear);
+          
+          const filteredData = filterAttendanceByPeriod(data, startDate, today);
+          console.log('Filtered attendance data:', filteredData);
+          
+          setAttendanceData(filteredData);
+        };
+        
+        filterAttendanceDataByTab(monthData);
       } catch (error) {
         console.error('Error fetching initial data:');
         setError('Failed to load attendance data. Please try again later.');
@@ -102,13 +145,47 @@ const AttendanceOverview = () => {
       }
     };
 
+    // Initial data fetch
     fetchInitialData();
+    
+    // Set up automatic refresh every 10 minutes (600000 ms)
+    const refreshInterval = setInterval(() => {
+      console.log('Auto-refreshing attendance data (10-minute interval)');
+      refreshAttendanceData();
+    }, 600000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(refreshInterval);
   }, []); // Empty dependency array means this runs once on mount
   
   // Filter the attendance data when the active tab changes
   useEffect(() => {
     if (fullMonthData) {
-      const filteredData = filterAttendanceByPeriod(fullMonthData, activeTab);
+      let today = new Date();
+      let startDate;
+      
+      if (activeTab === 'today') {
+        startDate = today;
+      } else if (activeTab === 'last3days') {
+        startDate = subDays(today, 2);
+      } else if (activeTab === 'last7days') {
+        startDate = subDays(today, 6);
+      } else if (activeTab === 'month') {
+        // For month tab, simply use the last 30 days
+        startDate = subDays(today, 29); // 29 days back + today = 30 days
+      }
+      
+      // Make sure startDate is defined
+      if (!startDate) {
+        console.warn('Start date is undefined, defaulting to today');
+        startDate = today;
+      }
+      
+      console.log('Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(today, 'yyyy-MM-dd'));
+      
+      const filteredData = filterAttendanceByPeriod(fullMonthData, startDate, today);
+      console.log('Filtered attendance data:', filteredData);
+      
       setAttendanceData(filteredData);
     }
   }, [activeTab, fullMonthData]);
@@ -128,7 +205,34 @@ const AttendanceOverview = () => {
       setLastRefreshed(new Date());
       
       // Filter the data based on the active tab
-      const filteredData = filterAttendanceByPeriod(monthData, activeTab);
+      let today = new Date();
+      let startDate;
+      
+      if (activeTab === 'today') {
+        startDate = today;
+      } else if (activeTab === 'last3days') {
+        startDate = subDays(today, 2);
+      } else if (activeTab === 'last7days') {
+        startDate = subDays(today, 6);
+      } else if (activeTab === 'month') {
+        // For month tab, simply use the last 30 days
+        startDate = subDays(today, 29); // 29 days back + today = 30 days
+      }
+      
+      // Check if startDate is defined (for safety)
+      if (!startDate) {
+        console.warn('Start date is undefined, defaulting to today');
+        startDate = today;
+      }
+      
+      // Set the year to the current year to match with API data
+      const currentYear = new Date().getFullYear();
+      startDate = new Date(currentYear, startDate.getMonth(), startDate.getDate());
+      today = new Date(currentYear, today.getMonth(), today.getDate());
+      
+      console.log('Refresh: Date range:', format(startDate, 'yyyy-MM-dd'), 'to', format(today, 'yyyy-MM-dd'));
+      
+      const filteredData = filterAttendanceByPeriod(monthData, startDate, today);
       setAttendanceData(filteredData);
     } catch (error) {
       console.error('Error refreshing attendance data:');
@@ -198,29 +302,22 @@ const AttendanceOverview = () => {
 
   // Get employee attendance for today
   const getEmployeeAttendance = (employeeId) => {
-    // Get the attendance data for this employee
-    const empData = attendanceData[employeeId];
+    console.log(`Getting attendance for employee ${employeeId}`);
+    console.log('Current attendance data:', attendanceData);
     
-    // Check if we have attendance data for this employee
-    if (!empData || (Array.isArray(empData) && empData.length === 0)) {
-      return {
-        status: 'Yet to Check In',
-        checkInTime: null,
-        checkOutTime: null,
-        workingHours: '0.00'
-      };
-    }
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const employeeAttendance = attendanceData[employeeId] || [];
     
-    console.log(`Attendance data for employee ${employeeId}:`, empData);
+    console.log(`Employee ${employeeId} attendance:`, employeeAttendance);
     
-    // For today's tab, just return the data as is
+    // For today tab, find today's record
     if (activeTab === 'today') {
       // If it's an array (which it should be), get the first entry
       // Our updated fetchMonthAttendance ensures there's at least one record for today
-      if (Array.isArray(empData) && empData.length > 0) {
+      if (Array.isArray(employeeAttendance) && employeeAttendance.length > 0) {
         // Find today's record
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        const todayRecord = empData.find(record => record.date === todayStr);
+        const todayRecord = employeeAttendance.find(record => record.date === todayStr);
         
         if (todayRecord) {
           console.log(`Using today's record for employee ${employeeId}:`, todayRecord);
@@ -228,65 +325,60 @@ const AttendanceOverview = () => {
         }
         
         // If no specific today record found, use the first one
-        console.log(`Using first record for employee ${employeeId}:`, empData[0]);
-        return empData[0];
+        console.log(`Using first record for employee ${employeeId}:`, employeeAttendance[0]);
+        return employeeAttendance[0];
       }
       
       // If it's not an array but has status (old format), return it
-      if (empData.status) {
-        console.log(`Using attendance record for employee ${employeeId}:`, empData);
-        return empData;
+      if (employeeAttendance.status) {
+        console.log(`Using attendance record for employee ${employeeId}:`, employeeAttendance);
+        return employeeAttendance;
       }
     }
     
     // For multi-day tabs, return the data as is if it's an array
-    if (Array.isArray(empData)) {
-      return empData;
+    if (Array.isArray(employeeAttendance)) {
+      return employeeAttendance;
     }
     
     // If we reach here, just return the data as is
-    return empData;
+    return employeeAttendance;
   };
 
   // Calculate attendance summary for multi-day views
   const calculateAttendanceSummary = (employeeId) => {
     const attendanceArray = attendanceData[employeeId] || [];
     
+    console.log(`Calculating attendance summary for employee ${employeeId}`);
+    console.log('Attendance array:', attendanceArray);
+    
     if (!attendanceArray.length) {
+      console.log('No attendance data found for this employee');
       return { 
         present: 0, 
         absent: 0, 
         holidays: 0, 
-        total: 0,
-        totalHours: '0.00'
+        total: 0
       };
     }
     
     const summary = attendanceArray.reduce((acc, day) => {
-      // Count present days
-      if (day.status === 'Present') {
+      console.log('Processing day:', day);
+      console.log('Current status:', day.status, 'Check-in time:', day.checkInTime);
+      
+      // Count present days - if status is Present OR check-in time exists
+      if (day.status === 'Present' || day.checkInTime) {
+        console.log('Counting as PRESENT');
         acc.present++;
-        // Handle working hours that might be in different formats
-        let hours = 0;
-        if (day.workingHours) {
-          // Try to parse as float
-          const parsed = parseFloat(day.workingHours);
-          if (!isNaN(parsed)) {
-            hours = parsed;
-          } else if (day.workingHours.includes(':')) {
-            // Handle HH:MM format
-            const [h, m] = day.workingHours.split(':').map(Number);
-            hours = h + (m / 60);
-          }
-        }
-        acc.totalHours += hours;
       }
-      // Count weekends and holidays
-      else if (day.isWeekend || day.isHoliday) {
+      // Count weekends and holidays (only if not present)
+      else if ((day.isWeekend || day.isHoliday) && !day.checkInTime) {
+        console.log('Counting as HOLIDAY');
         acc.holidays++;
       }
-      // Count absences and leaves
-      else if (day.status === 'Absent' || day.isLeave) {
+      // Count absences and leaves (only if not present)
+      else if ((day.status === 'Absent' || day.isLeave) && !day.checkInTime) {
+        console.log('Counting as ABSENT');
         acc.absent++;
       }
       // Handle 'Yet to Check In' status for today
@@ -294,18 +386,19 @@ const AttendanceOverview = () => {
         // Don't count as absent if it's today and they haven't checked in yet
         const today = format(new Date(), 'yyyy-MM-dd');
         if (day.date === today) {
+          console.log('Today - not counting');
           // Don't count it in any category
         } else {
+          console.log('Counting as ABSENT (Yet to Check In)');
           acc.absent++;
         }
       }
       
+      console.log('Current totals:', acc);
+      
       acc.total++;
       return acc;
-    }, { present: 0, absent: 0, holidays: 0, total: 0, totalHours: 0 });
-    
-    // Format total hours
-    summary.totalHours = summary.totalHours.toFixed(2);
+    }, { present: 0, absent: 0, holidays: 0, total: 0 });
     
     return summary;
   };
@@ -483,7 +576,6 @@ const AttendanceOverview = () => {
                               <TableHead>Status</TableHead>
                               <TableHead>Check In</TableHead>
                               <TableHead>Check Out</TableHead>
-                              <TableHead className="text-right">Working Hours</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -527,9 +619,6 @@ const AttendanceOverview = () => {
                                     <TableCell>
                                       {attendance.checkOutTime ? formatTime(attendance.checkOutTime) : 'N/A'}
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                      {attendance.workingHours} hrs
-                                    </TableCell>
                                   </TableRow>
                                 );
                               })
@@ -558,7 +647,7 @@ const AttendanceOverview = () => {
                               <TableHead>Present</TableHead>
                               <TableHead>Absent</TableHead>
                               <TableHead>Holidays</TableHead>
-                              <TableHead className="text-right">Working Hours</TableHead>
+
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -607,9 +696,7 @@ const AttendanceOverview = () => {
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                      {summary.totalHours} hrs
-                                    </TableCell>
+
                                   </TableRow>
                                 );
                               })
@@ -640,7 +727,7 @@ const AttendanceOverview = () => {
                               <TableHead>Present</TableHead>
                               <TableHead>Absent</TableHead>
                               <TableHead>Holidays</TableHead>
-                              <TableHead className="text-right">Working Hours</TableHead>
+
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -689,9 +776,7 @@ const AttendanceOverview = () => {
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                      {summary.totalHours} hrs
-                                    </TableCell>
+
                                   </TableRow>
                                 );
                               })
@@ -722,7 +807,7 @@ const AttendanceOverview = () => {
                               <TableHead>Present</TableHead>
                               <TableHead>Absent</TableHead>
                               <TableHead>Holidays</TableHead>
-                              <TableHead className="text-right">Working Hours</TableHead>
+
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -771,9 +856,7 @@ const AttendanceOverview = () => {
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                      {summary.totalHours} hrs
-                                    </TableCell>
+
                                   </TableRow>
                                 );
                               })

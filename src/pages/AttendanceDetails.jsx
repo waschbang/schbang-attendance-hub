@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { format, subDays, parseISO } from 'date-fns';
@@ -59,6 +58,10 @@ const AttendanceDetails = () => {
         const employeeData = JSON.parse(storedEmployee);
         let attendanceData = JSON.parse(storedAttendance);
         
+        // Log the data being passed to the employee details page
+        console.log('Employee details:', employeeData);
+        console.log('Employee attendance data:', attendanceData);
+        
         setEmployee(employeeData);
         
         // Filter attendance data based on active tab
@@ -88,7 +91,24 @@ const AttendanceDetails = () => {
           return new Date(b.date) - new Date(a.date);
         });
         
-        setAttendanceData(filteredAttendance);
+        // Process the attendance data to handle status properly
+        const processedAttendance = filteredAttendance.map(day => {
+          // If check-in time exists, always mark as Present
+          if (day.checkInTime) {
+            return {
+              ...day,
+              displayStatus: 'Present',
+              originalStatus: day.status
+            };
+          }
+          return {
+            ...day,
+            displayStatus: day.status,
+            originalStatus: day.status
+          };
+        });
+        
+        setAttendanceData(processedAttendance);
         setIsLoading(false);
       } catch (err) {
         console.error('Error loading data:', err);
@@ -122,6 +142,14 @@ const AttendanceDetails = () => {
       case 'Holiday':
         return 'secondary';
       default:
+        // Check if status contains 'holiday' but is not exactly 'Holiday'
+        if (status.toLowerCase().includes('holiday')) {
+          return 'secondary';
+        }
+        // Check if status contains 'leave'
+        if (status.toLowerCase().includes('leave')) {
+          return 'warning';
+        }
         return 'outline';
     }
   };
@@ -129,12 +157,12 @@ const AttendanceDetails = () => {
   // Calculate attendance statistics
   const calculateStats = () => {
     if (!attendanceData || attendanceData.length === 0) {
-      return { present: 0, absent: 0, holidays: 0, late: 0, totalHours: 0 };
+      return { present: 0, absent: 0, holidays: 0, late: 0 };
     }
     
     return attendanceData.reduce((stats, day) => {
-      // Count present days
-      if (day.status === 'Present') {
+      // Count present days (if check-in time exists or status is Present)
+      if (day.checkInTime || day.displayStatus === 'Present') {
         stats.present++;
         
         // Check if late (after 10:30 AM)
@@ -160,12 +188,9 @@ const AttendanceDetails = () => {
             }
           }
         }
-        
-        // Add working hours
-        stats.totalHours += parseFloat(day.workingHours || 0);
       } 
       // Count absent days (excluding holidays and weekends)
-      else if (day.status === 'Absent' && !day.isHoliday && !day.isWeekend) {
+      else if (day.displayStatus === 'Absent' && !day.isHoliday && !day.isWeekend) {
         stats.absent++;
       }
       // Count holidays and weekends
@@ -178,7 +203,7 @@ const AttendanceDetails = () => {
       }
       
       return stats;
-    }, { present: 0, absent: 0, holidays: 0, late: 0, totalHours: 0 });
+    }, { present: 0, absent: 0, holidays: 0, late: 0 });
   };
 
   // Get initials from name
@@ -279,7 +304,7 @@ const AttendanceDetails = () => {
                 </Card>
               )}
               
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 {calculateStats() && (
                   <>
                     <Card>
@@ -323,20 +348,6 @@ const AttendanceDetails = () => {
                         </div>
                       </CardContent>
                     </Card>
-                    
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Working Hours</p>
-                            <h3 className="text-2xl font-bold">{calculateStats().totalHours.toFixed(2)} hrs</h3>
-                          </div>
-                          <div className="p-2 bg-blue-100 rounded-full">
-                            <Clock3 className="h-5 w-5 text-blue-600" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
                   </>
                 )}
               </div>
@@ -366,13 +377,12 @@ const AttendanceDetails = () => {
                               <TableHead>Status</TableHead>
                               <TableHead>Check In</TableHead>
                               <TableHead>Check Out</TableHead>
-                              <TableHead className="text-right">Working Hours</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {attendanceData.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
                                   No attendance records found for this period
                                 </TableCell>
                               </TableRow>
@@ -388,18 +398,20 @@ const AttendanceDetails = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(day.status)}>
-                                      {day.status}
+                                    <Badge variant={getStatusBadgeVariant(day.displayStatus)}>
+                                      {day.displayStatus}
                                     </Badge>
+                                    {day.isHoliday && day.checkInTime && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        (On Holiday)
+                                      </div>
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     {day.checkInTime ? formatTime(day.checkInTime) : 'N/A'}
                                   </TableCell>
                                   <TableCell>
                                     {day.checkOutTime ? formatTime(day.checkOutTime) : 'N/A'}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {day.workingHours} hrs
                                   </TableCell>
                                 </TableRow>
                               ))
@@ -428,13 +440,12 @@ const AttendanceDetails = () => {
                               <TableHead>Status</TableHead>
                               <TableHead>Check In</TableHead>
                               <TableHead>Check Out</TableHead>
-                              <TableHead className="text-right">Working Hours</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {attendanceData.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                                <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
                                   No attendance records found for this period
                                 </TableCell>
                               </TableRow>
@@ -450,18 +461,20 @@ const AttendanceDetails = () => {
                                     )}
                                   </TableCell>
                                   <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(day.status)}>
-                                      {day.status}
+                                    <Badge variant={getStatusBadgeVariant(day.displayStatus)}>
+                                      {day.displayStatus}
                                     </Badge>
+                                    {day.isHoliday && day.checkInTime && (
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        (On Holiday)
+                                      </div>
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     {day.checkInTime ? formatTime(day.checkInTime) : 'N/A'}
                                   </TableCell>
                                   <TableCell>
                                     {day.checkOutTime ? formatTime(day.checkOutTime) : 'N/A'}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    {day.workingHours} hrs
                                   </TableCell>
                                 </TableRow>
                               ))

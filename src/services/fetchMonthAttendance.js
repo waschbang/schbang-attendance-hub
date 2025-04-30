@@ -8,8 +8,25 @@ const API_BASE_URL = '/zoho-api/people/api';
 
 // Format date to DD-MM-YYYY format for Zoho API
 const formatDateForZoho = (date) => {
-  // Ensure we're using the correct format: DD-MM-YYYY
-  return format(date, 'dd-MM-yyyy');
+  try {
+    // Always use the current date and month but with the current year
+    const currentYear = new Date().getFullYear();
+    
+    // Extract day and month from the provided date
+    const day = format(date, 'dd');
+    const month = format(date, 'MM');
+    
+    // Construct the date string manually to ensure current year
+    const formattedDate = `${day}-${month}-${currentYear}`;
+    
+    console.log(`Formatted date for Zoho API: ${formattedDate} (original date: ${format(date, 'yyyy-MM-dd')})`);
+    return formattedDate;
+  } catch (error) {
+    console.error('Error formatting date for Zoho API:', error);
+    // Fallback to current date with current year as a last resort
+    const now = new Date();
+    return format(now, 'dd-MM-') + now.getFullYear();
+  }
 };
 
 // Helper function to process a date record consistently
@@ -48,10 +65,12 @@ const processDateRecord = (record, dateKey, employeeId) => {
   
   // Determine status
   let status = 'Absent';
-  if (record.Status) {
-    status = record.Status;
-  } else if (checkInTime) {
+  
+  // If check-in time exists, always mark as Present regardless of other status
+  if (checkInTime) {
     status = 'Present';
+  } else if (record.Status) {
+    status = record.Status;
   }
   
   // Create a record object
@@ -60,7 +79,6 @@ const processDateRecord = (record, dateKey, employeeId) => {
     date: dateKey,
     checkInTime,
     checkOutTime,
-    workingHours: record.WorkingHours || record.TotalHours || '00:00',
     status: status,
     isHoliday: status.toLowerCase().includes('holiday'),
     holidayName: status.toLowerCase().includes('holiday') ? status : '',
@@ -81,6 +99,7 @@ const processDateRecord = (record, dateKey, employeeId) => {
  * @returns {Object} - Object with employee IDs as keys and arrays of attendance records as values
  */
 export const fetchMonthAttendance = async (employeeIds) => {
+  console.log('fetchMonthAttendance called with employee IDs:', employeeIds);
   // First, ensure we have a fresh token
   try {
     await refreshAccessToken();
@@ -98,6 +117,8 @@ export const fetchMonthAttendance = async (employeeIds) => {
   const startDateStr = formatDateForZoho(startDate);
   const endDateStr = formatDateForZoho(today);
   
+  console.log('Date range for API request:', startDateStr, 'to', endDateStr);
+  
   // Date range for API request
   // startDate: startDateStr
   // endDate: endDateStr
@@ -114,6 +135,8 @@ export const fetchMonthAttendance = async (employeeIds) => {
           edate: endDateStr,
           empId: employeeId
         };
+        
+        console.log(`API request for employee ${employeeId}:`, requestParams);
         
         // Make API request for employee with the date parameters
         
@@ -156,7 +179,6 @@ export const fetchMonthAttendance = async (employeeIds) => {
               date: todayFormatted,
               checkInTime: null,
               checkOutTime: null,
-              workingHours: '00:00',
               status: 'Yet to Check In',
               isHoliday: false,
               holidayName: '',
@@ -189,7 +211,6 @@ Object.keys(dateData).forEach(dateKey => {
               date: todayFormatted,
               checkInTime: null,
               checkOutTime: null,
-              workingHours: '00:00',
               status: 'Yet to Check In',
               isHoliday: false,
               holidayName: '',
@@ -204,45 +225,15 @@ Object.keys(dateData).forEach(dateKey => {
             
             processedRecords.push(defaultRecord);
           }
-          
-          // Always ensure we have at least one record for today
-          const todayStr = format(today, 'yyyy-MM-dd');
-          const hasTodayRecord = processedRecords.some(record => record.date === todayStr);
-          
-          if (!hasTodayRecord) {
-            const todayRecord = {
-              employeeId,
-              date: todayStr,
-              checkInTime: null,
-              checkOutTime: null,
-              workingHours: '00:00',
-              status: 'Yet to Check In',
-              isHoliday: false,
-              holidayName: '',
-              isWeekend: isWeekendFn(today),
-              isLeave: false,
-              leaveType: '',
-              shiftName: '',
-              shiftStartTime: '',
-              shiftEndTime: '',
-              location: ''
-            };
-            
-            processedRecords.push(todayRecord);
-          }
-          
-          return { employeeId, records: processedRecords };
-        } else {
-          console.log(`No recognized data format for employee ${employeeId}`);
-          
-          // Create a default record for today
+        }
+        // If we couldn't find any data in the expected formats, create a default record
+        else {
           const todayFormatted = format(today, 'yyyy-MM-dd');
           const defaultRecord = {
             employeeId,
             date: todayFormatted,
             checkInTime: null,
             checkOutTime: null,
-            workingHours: '00:00',
             status: 'Yet to Check In',
             isHoliday: false,
             holidayName: '',
@@ -258,190 +249,103 @@ Object.keys(dateData).forEach(dateKey => {
           processedRecords.push(defaultRecord);
         }
         
-        // Always return the processed records, even if empty
         return { employeeId, records: processedRecords };
       } catch (error) {
         console.error(`Error fetching attendance for employee ${employeeId}:`, error);
-        
-        // Log more details about the error to help diagnose the issue
-        if (error.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
-          console.error('Error response data:', error.response.data);
-          console.error('Error response status:', error.response.status);
-          console.error('Error response headers:', error.response.headers);
-        } else if (error.request) {
-          // The request was made but no response was received
-          console.error('Error request:', error.request);
-        } else {
-          // Something happened in setting up the request that triggered an Error
-          console.error('Error message:', error.message);
-        }
-        
-        // Create a default record for today even in case of error
-        const todayFormatted = format(today, 'yyyy-MM-dd');
-        const defaultRecord = {
-          employeeId,
-          date: todayFormatted,
-          checkInTime: null,
-          checkOutTime: null,
-          workingHours: '00:00',
-          status: 'Yet to Check In', // Changed from 'Error Fetching Data' to be consistent with UI
-          isHoliday: false,
-          holidayName: '',
-          isWeekend: isWeekendFn(today),
-          isLeave: false,
-          leaveType: '',
-          shiftName: '',
-          shiftStartTime: '',
-          shiftEndTime: '',
-          location: ''
-        };
-        
-        return { employeeId, records: [defaultRecord] };
+        // Return an empty array for this employee
+        return { employeeId, records: [] };
       }
     });
     
     // Wait for all promises to resolve
     const results = await Promise.all(attendancePromises);
     
-    // Convert array of results to an object keyed by employee ID
+    console.log('All attendance promises resolved:', results);
+    
+    // Convert the array of results to an object with employee IDs as keys
     const attendanceData = {};
-    results.forEach(({ employeeId, records }) => {
-      attendanceData[employeeId] = records;
+    results.forEach(result => {
+      console.log(`Processing result for employee ${result.employeeId}:`, result.records);
+      attendanceData[result.employeeId] = result.records;
     });
     
-    console.log('Fetched month attendance data for all employees');
+    console.log('Final attendance data:', attendanceData);
     return attendanceData;
   } catch (error) {
-    console.error('Error fetching month attendance:', error);
+    console.error('Error fetching attendance data:', error);
     throw error;
   }
 };
 
 /**
- * Filter attendance data for a specific time period
- * @param {Object} allAttendanceData - Full attendance data object
- * @param {String} period - Period to filter for ('today', 'last3days', 'last7days', 'month')
+ * Filter attendance data by period
+ * @param {Object} attendanceData - Object with employee IDs as keys and arrays of attendance records as values
+ * @param {Date} startDate - Start date for filtering
+ * @param {Date} endDate - End date for filtering
  * @returns {Object} - Filtered attendance data
  */
-export const filterAttendanceByPeriod = (allAttendanceData, period) => {
-  if (!allAttendanceData) return {};
+export const filterAttendanceByPeriod = (attendanceData, startDate, endDate) => {
+  console.log('filterAttendanceByPeriod called with:', {
+    startDate: startDate ? format(startDate, 'yyyy-MM-dd') : 'undefined',
+    endDate: endDate ? format(endDate, 'yyyy-MM-dd') : 'undefined'
+  });
   
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to beginning of day for comparison
+  // Get the day and month components for comparison
+  const startDay = startDate ? format(startDate, 'dd') : null;
+  const startMonth = startDate ? format(startDate, 'MM') : null;
+  const endDay = endDate ? format(endDate, 'dd') : null;
+  const endMonth = endDate ? format(endDate, 'MM') : null;
+  
+  console.log(`Comparing by day/month: Start=${startDay}-${startMonth}, End=${endDay}-${endMonth}`);
+  console.log('Attendance data to filter:', attendanceData);
   
   const filteredData = {};
   
-  // Process each employee's data
-  Object.keys(allAttendanceData).forEach(employeeId => {
-    const employeeRecords = allAttendanceData[employeeId] || [];
+  Object.keys(attendanceData).forEach(employeeId => {
+    console.log(`Filtering records for employee ${employeeId}`);
+    console.log(`Original records count: ${attendanceData[employeeId].length}`);
     
-    // Filter records based on the period
-    let filteredRecords = [];
-    
-    if (period === 'today') {
-      // Only include records from today
-      filteredRecords = employeeRecords.filter(record => {
+    filteredData[employeeId] = attendanceData[employeeId].filter(record => {
+      try {
         if (!record.date) return false;
         
-        try {
-          const recordDate = new Date(record.date);
-          recordDate.setHours(0, 0, 0, 0);
-          return recordDate.getTime() === today.getTime();
-        } catch (e) {
-          console.error(`Error parsing date: ${record.date}`, e);
-          return false;
-        }
-      });
-      
-      // If no records for today, create a default one
-      if (filteredRecords.length === 0 && employeeRecords.length > 0) {
-        const todayFormatted = format(today, 'yyyy-MM-dd');
-        const defaultRecord = {
-          employeeId,
-          date: todayFormatted,
-          checkInTime: null,
-          checkOutTime: null,
-          workingHours: '00:00',
-          status: 'Yet to Check In',
-          isHoliday: false,
-          holidayName: '',
-          isWeekend: isWeekendFn(today),
-          isLeave: false,
-          leaveType: '',
-          shiftName: '',
-          shiftStartTime: '',
-          shiftEndTime: '',
-          location: ''
-        };
+        // Parse the record date
+        // Extract only the day and month for comparison, ignoring year differences
+        const recordDateParts = record.date.split('-');
+        if (recordDateParts.length < 3) return false;
         
-        filteredRecords = [defaultRecord];
+        const recordDay = recordDateParts[2].slice(0, 2);
+        const recordMonth = recordDateParts[1];
+        
+        // Compare day and month only, ignoring year
+        let isInRange = false;
+        
+        // For single day comparison
+        if (startMonth === endMonth && startDay === endDay) {
+          isInRange = recordMonth === startMonth && recordDay === startDay;
+        } 
+        // For date range comparison
+        else {
+          // Create month-day strings for easy comparison
+          const recordMonthDay = `${recordMonth}-${recordDay}`;
+          const startMonthDay = `${startMonth}-${startDay}`;
+          const endMonthDay = `${endMonth}-${endDay}`;
+          
+          // Check if month-day is in range
+          isInRange = recordMonthDay >= startMonthDay && recordMonthDay <= endMonthDay;
+        }
+        
+        console.log(`Record date: ${record.date}, Day: ${recordDay}, Month: ${recordMonth}, In range: ${isInRange}`);
+        return isInRange;
+      } catch (e) {
+        console.error(`Error parsing date for record:`, record, e);
+        return false;
       }
-    } else if (period === 'last3days') {
-      // Include records from the last 3 days
-      const threeDaysAgo = new Date(today);
-      threeDaysAgo.setDate(today.getDate() - 2); // -2 because today counts as 1
-      
-      filteredRecords = employeeRecords.filter(record => {
-        if (!record.date) return false;
-        
-        try {
-          const recordDate = new Date(record.date);
-          recordDate.setHours(0, 0, 0, 0);
-          return recordDate >= threeDaysAgo;
-        } catch (e) {
-          console.error(`Error parsing date: ${record.date}`, e);
-          return false;
-        }
-      });
-    } else if (period === 'last7days') {
-      // Include records from the last 7 days
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 6); // -6 because today counts as 1
-      
-      filteredRecords = employeeRecords.filter(record => {
-        if (!record.date) return false;
-        
-        try {
-          const recordDate = new Date(record.date);
-          recordDate.setHours(0, 0, 0, 0);
-          return recordDate >= sevenDaysAgo;
-        } catch (e) {
-          console.error(`Error parsing date: ${record.date}`, e);
-          return false;
-        }
-      });
-    } else if (period === 'month') {
-      // Include all records (already filtered for the month)
-      filteredRecords = employeeRecords;
-    }
+    });
     
-    // For today's view, ensure we always have at least one record
-    if (period === 'today' && filteredRecords.length === 0) {
-      const todayFormatted = format(today, 'yyyy-MM-dd');
-      filteredRecords = [{
-        employeeId,
-        date: todayFormatted,
-        checkInTime: null,
-        checkOutTime: null,
-        workingHours: '00:00',
-        status: 'Yet to Check In',
-        isHoliday: false,
-        holidayName: '',
-        isWeekend: isWeekendFn(today),
-        isLeave: false,
-        leaveType: '',
-        shiftName: '',
-        shiftStartTime: '',
-        shiftEndTime: '',
-        location: ''
-      }];
-    }
-    
-    // Add filtered records to the result
-    filteredData[employeeId] = filteredRecords;
+    console.log(`Filtered records count: ${filteredData[employeeId].length}`);
   });
   
+  console.log('Filtered attendance data:', filteredData);
   return filteredData;
 };
