@@ -5,20 +5,20 @@ const isDevelopment = import.meta.env.DEV;
 export const ZOHO_CONFIG = {
   // Auth endpoints
   auth: {
-    // In development, use the proxy to avoid CORS issues
-    // In production, use the direct Zoho OAuth endpoint
+    // In development, use the local proxy to avoid CORS issues
+    // In production, use the Vercel serverless function as a proxy
     tokenUrl: isDevelopment 
       ? '/zoho-oauth/oauth/v2/token'
-      : 'https://accounts.zoho.com/oauth/v2/token',
+      : '/api/zoho-token',
   },
   
   // API endpoints
   api: {
-    // In development, use the proxy to avoid CORS issues
-    // In production, use the direct Zoho People API endpoint
+    // In development, use the local proxy to avoid CORS issues
+    // In production, use the Vercel serverless function as a proxy
     baseUrl: isDevelopment 
       ? '/zoho-api/people/api'
-      : 'https://people.zoho.com/people/api',
+      : '/api/zoho-people',
   },
   
   // Credentials (same for both environments)
@@ -31,5 +31,13 @@ export const ZOHO_CONFIG = {
 
 // Helper function to get the correct API URL based on environment
 export const getApiUrl = (endpoint) => {
-  return `${ZOHO_CONFIG.api.baseUrl}${endpoint}`;
+  const isDevelopment = import.meta.env.DEV;
+  
+  // In development, append the endpoint to the base URL
+  // In production, just return the base URL (endpoint will be passed as query param)
+  if (isDevelopment) {
+    return endpoint ? `${ZOHO_CONFIG.api.baseUrl}${endpoint}` : ZOHO_CONFIG.api.baseUrl;
+  } else {
+    return ZOHO_CONFIG.api.baseUrl;
+  }
 };

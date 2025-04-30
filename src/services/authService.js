@@ -45,6 +45,11 @@ export const refreshAccessToken = async (retryCount = 0, delay = 1000) => {
     formData.append('refresh_token', ZOHO_AUTH_CONFIG.refreshToken);
     formData.append('grant_type', 'refresh_token');
     
+    // Check if we're in development or production mode
+    const isDevelopment = import.meta.env.DEV;
+    
+    // In development, use the standard token URL with form data
+    // In production, use the serverless function with form data
     const response = await axios.post(ZOHO_AUTH_CONFIG.tokenUrl, formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

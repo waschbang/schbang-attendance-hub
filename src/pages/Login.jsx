@@ -40,7 +40,7 @@ const Login = () => {
             title: "Success",
             description: "Login successful!",
           });
-          localStorage.setItem('user', JSON.stringify({ email, name: 'Demo Client' }));
+          localStorage.setItem('user', JSON.stringify({ email, name: 'User' }));
           navigate('/attendance/overview');
         } else {
           toast({

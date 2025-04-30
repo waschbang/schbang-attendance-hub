@@ -73,8 +73,16 @@ export const fetchEmployeesByDepartment = async (departmentId) => {
     
     const authHeader = await getAuthHeader();
     
-    const response = await axios.get(
-      getApiUrl(`/forms/employee/getRelatedRecords?parentModule=department&id=${departmentId}&sIndex=1&limit=200`),
+    // Check if we're in development or production mode
+    const isDevelopment = import.meta.env.DEV;
+    
+    // In development, use the standard API URL
+    // In production, use the serverless function with path parameter
+    const apiUrl = isDevelopment
+      ? getApiUrl(`/forms/employee/getRelatedRecords?parentModule=department&id=${departmentId}&sIndex=1&limit=200`)
+      : `${getApiUrl()}?path=forms/employee/getRelatedRecords&parentModule=department&id=${departmentId}&sIndex=1&limit=200`;
+    
+    const response = await axios.get(apiUrl,
       {
         headers: {
           ...authHeader,

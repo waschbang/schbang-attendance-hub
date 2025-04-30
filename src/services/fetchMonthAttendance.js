@@ -149,8 +149,16 @@ export const fetchMonthAttendance = async (employeeIds, customStartDate, customE
         
         // Make API request for employee with the date parameters
         
-        const response = await axios.get(
-          getApiUrl('/attendance/getUserReport'), {
+        // Check if we're in development or production mode
+        const isDevelopment = import.meta.env.DEV;
+        
+        // In development, use the standard API URL
+        // In production, use the serverless function with path parameter
+        const apiUrl = isDevelopment
+          ? getApiUrl('/attendance/getUserReport')
+          : `${getApiUrl()}?path=attendance/getUserReport`;
+        
+        const response = await axios.get(apiUrl, {
             params: requestParams,
             headers: {
               ...authHeader,
