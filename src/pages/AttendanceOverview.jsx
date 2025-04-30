@@ -533,12 +533,19 @@ const AttendanceOverview = () => {
           
           <Tabs defaultValue="today" value={activeTab} onValueChange={handleTabChange} className="mb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <TabsList>
-                <TabsTrigger value="today">Today</TabsTrigger>
-                <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
-                <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
-                <TabsTrigger value="month">Month</TabsTrigger>
-              </TabsList>
+              <div className="flex flex-col gap-1">
+                <TabsList>
+                  <TabsTrigger value="today">Today</TabsTrigger>
+                  <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
+                  <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
+                  <TabsTrigger value="month">Month</TabsTrigger>
+                </TabsList>
+                <div className="text-xs text-muted-foreground ml-2">
+                  Current view: <span className="font-medium text-primary">{activeTab === 'today' ? 'Today' : 
+                    activeTab === 'last3days' ? 'Last 3 Days' : 
+                    activeTab === 'last7days' ? 'Last 7 Days' : 'Month (Last 30 Days)'}</span>
+                </div>
+              </div>
               
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
