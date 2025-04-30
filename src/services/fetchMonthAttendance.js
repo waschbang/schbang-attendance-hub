@@ -2,9 +2,7 @@ import { format, subDays, isWeekend as isWeekendFn, parseISO } from 'date-fns';
 import axios from 'axios';
 import { getAuthHeader, refreshAccessToken } from './authService';
 import { processZohoAttendanceData } from './attendanceService';
-
-// Base API URL - Using Vite proxy to avoid CORS issues
-const API_BASE_URL = '/zoho-api/people/api';
+import { getApiUrl } from '../config/apiConfig';
 
 // Format date to DD-MM-YYYY format for Zoho API
 const formatDateForZoho = (date) => {
@@ -152,7 +150,7 @@ export const fetchMonthAttendance = async (employeeIds, customStartDate, customE
         // Make API request for employee with the date parameters
         
         const response = await axios.get(
-          `${API_BASE_URL}/attendance/getUserReport`, {
+          getApiUrl('/attendance/getUserReport'), {
             params: requestParams,
             headers: {
               ...authHeader,

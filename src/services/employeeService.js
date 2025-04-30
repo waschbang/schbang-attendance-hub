@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { getAuthHeader } from './authService';
-
-// Base API URL - Using Vite proxy to avoid CORS issues
-const API_BASE_URL = '/zoho-api/people/api';
+import { getApiUrl } from '../config/apiConfig';
 
 // Store employees data in memory to avoid redundant API calls
 let employeesCache = {};
@@ -76,7 +74,7 @@ export const fetchEmployeesByDepartment = async (departmentId) => {
     const authHeader = await getAuthHeader();
     
     const response = await axios.get(
-      `${API_BASE_URL}/forms/employee/getRelatedRecords?parentModule=department&id=${departmentId}&sIndex=1&limit=200`,
+      getApiUrl(`/forms/employee/getRelatedRecords?parentModule=department&id=${departmentId}&sIndex=1&limit=200`),
       {
         headers: {
           ...authHeader,

@@ -1,12 +1,13 @@
 import axios from 'axios';
 
-// Zoho OAuth configuration
+import { ZOHO_CONFIG } from '../config/apiConfig';
+
+// Use the configuration from apiConfig.js
 const ZOHO_AUTH_CONFIG = {
-  clientId: '1000.QE5OL40NQ9B5KHJRSZ62HSRKRWQSDQ',
-  clientSecret: '3bb27cd2c2683a27d2a3a86398184326e5e842009f',
-  refreshToken: '1000.8a88e31cf4b7ca918adfc95c1bf7111c.2d6e8b9fa79b49a7e01ad2cac86587c2',
-  // Use the proxy endpoint to avoid CORS issues
-  tokenUrl: '/zoho-oauth/oauth/v2/token',
+  clientId: ZOHO_CONFIG.credentials.clientId,
+  clientSecret: ZOHO_CONFIG.credentials.clientSecret,
+  refreshToken: ZOHO_CONFIG.credentials.refreshToken,
+  tokenUrl: ZOHO_CONFIG.auth.tokenUrl,
 };
 
 // Token storage
