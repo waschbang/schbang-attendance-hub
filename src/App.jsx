@@ -8,13 +8,11 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { AnimatePresence } from 'framer-motion';
 
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
 import AttendanceDetails from "./pages/AttendanceDetails";
 import AttendanceOverview from "./pages/AttendanceOverview";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import EmployeeList from "./pages/EmployeeList";
 import Reports from "./pages/Reports";
-import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,12 +41,10 @@ const App = () => (
           <AnimatePresence mode="wait">
             <Routes>
               <Route path="/" element={<Login />} />
-              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/attendance/overview" element={<AttendanceOverview />} />
               <Route path="/attendance/:employeeId" element={<AttendanceDetails />} />
               <Route path="/employee/list" element={<EmployeeList />} />
               <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AnimatePresence>

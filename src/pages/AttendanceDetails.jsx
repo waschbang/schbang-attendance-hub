@@ -45,14 +45,23 @@ const AttendanceDetails = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = () => {
       setIsLoading(true);
       try {
-        // Fetch employee details
-        const employeeData = await fetchEmployeeById(employeeId);
+        // Get employee data from localStorage (set by AttendanceOverview)
+        const storedEmployee = localStorage.getItem('selectedEmployee');
+        const storedAttendance = localStorage.getItem('selectedEmployeeAttendance');
+        
+        if (!storedEmployee || !storedAttendance) {
+          throw new Error('Employee data not found in local storage');
+        }
+        
+        const employeeData = JSON.parse(storedEmployee);
+        let attendanceData = JSON.parse(storedAttendance);
+        
         setEmployee(employeeData);
         
-        // Fetch attendance data based on active tab
+        // Filter attendance data based on active tab
         const today = new Date();
         let startDate;
         
@@ -62,17 +71,33 @@ const AttendanceDetails = () => {
           startDate = subDays(today, 29);
         }
         
-        const attendanceResult = await fetchEmployeeAttendance(employeeId, startDate, today);
-        setAttendanceData(attendanceResult);
+        // Filter the attendance data based on the selected date range
+        const filteredAttendance = attendanceData.filter(record => {
+          if (!record.date) return false;
+          
+          try {
+            const recordDate = new Date(record.date);
+            return recordDate >= startDate && recordDate <= today;
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        // Sort by date (newest first)
+        filteredAttendance.sort((a, b) => {
+          return new Date(b.date) - new Date(a.date);
+        });
+        
+        setAttendanceData(filteredAttendance);
         setIsLoading(false);
       } catch (err) {
-        console.error('Error fetching data:', err);
+        console.error('Error loading data:', err);
         setError('Failed to load attendance data. Please try again later.');
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    loadData();
   }, [employeeId, activeTab]);
 
   // Handle tab change
@@ -231,7 +256,17 @@ const AttendanceDetails = () => {
                         
                         <div className="bg-primary/5 p-3 rounded-lg text-center">
                           <div className="text-sm text-muted-foreground">Joined</div>
-                          <div className="font-medium">{employee.joiningDate ? format(new Date(employee.joiningDate), 'MMM d, yyyy') : 'N/A'}</div>
+                          <div className="font-medium">
+                            {employee.joiningDate && employee.joiningDate !== 'Invalid Date' && employee.joiningDate !== '' ? 
+                              (() => {
+                                try {
+                                  const date = new Date(employee.joiningDate);
+                                  return isNaN(date.getTime()) ? 'N/A' : format(date, 'MMM d, yyyy');
+                                } catch (e) {
+                                  return 'N/A';
+                                }
+                              })() : 'N/A'}
+                          </div>
                         </div>
                         
                         <div className="bg-primary/5 p-3 rounded-lg text-center">

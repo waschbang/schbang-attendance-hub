@@ -6,11 +6,9 @@ import ThemeToggle from '../ThemeToggle';
 import { 
   Menu, 
   X, 
-  Home, 
   Users, 
   Calendar, 
   BarChart4, 
-  Settings, 
   LogOut 
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -61,11 +59,9 @@ const DashboardLayout = ({ children }) => {
   };
   
   const navItems = [
-    { name: 'Dashboard', icon: Home, path: '/dashboard' },
     { name: 'Attendance', icon: Calendar, path: '/attendance/overview' },
     { name: 'Employees', icon: Users, path: '/employee/list' },
-    { name: 'Reports', icon: BarChart4, path: '/reports' },
-    { name: 'Settings', icon: Settings, path: '/settings' }
+    { name: 'Reports', icon: BarChart4, path: '/reports' }
   ];
 
   const sidebarVariants = {
@@ -89,7 +85,7 @@ const DashboardLayout = ({ children }) => {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            <Link to="/dashboard" className="flex items-center space-x-3">
+            <Link to="/attendance/overview" className="flex items-center space-x-3">
               <img 
                 src={logo}
                 alt="Schbang Logo" 

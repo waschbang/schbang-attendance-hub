@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format, subDays } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, 
   Clock, 
@@ -34,6 +35,7 @@ import { formatTimeForDisplay } from '../services/attendanceService';
 import { fetchMonthAttendance, filterAttendanceByPeriod } from '../services/fetchMonthAttendance';
 
 const AttendanceOverview = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
   const [attendanceData, setAttendanceData] = useState({});
@@ -75,23 +77,17 @@ const AttendanceOverview = () => {
       
       try {
         // Step 1: Fetch all employees from the department
-        console.log('Fetching all employees from department');
         const departmentId = '612996000034607912';
         const employeeList = await fetchEmployeesByDepartment(departmentId);
         
-        console.log(`Found ${employeeList.length} employees in the department`);
         setEmployees(employeeList);
         setFilteredEmployees(employeeList);
         
         // Step 2: Get all employee IDs
         const allEmployeeIds = employeeList.map(emp => emp.employeeId);
-        console.log(`Extracted ${allEmployeeIds.length} employee IDs for attendance fetch`);
         
         // Step 3: Fetch full month attendance data for all employees
-        console.log('Fetching full month attendance data for all employees...');
         const monthData = await fetchMonthAttendance(allEmployeeIds);
-        
-        console.log('Successfully fetched full month attendance data');
         setFullMonthData(monthData);
         setLastRefreshed(new Date());
         
@@ -99,7 +95,7 @@ const AttendanceOverview = () => {
         const filteredData = filterAttendanceByPeriod(monthData, activeTab);
         setAttendanceData(filteredData);
       } catch (error) {
-        console.error('Error fetching initial data:', error);
+        console.error('Error fetching initial data:');
         setError('Failed to load attendance data. Please try again later.');
       } finally {
         setIsLoading(false);
@@ -112,7 +108,6 @@ const AttendanceOverview = () => {
   // Filter the attendance data when the active tab changes
   useEffect(() => {
     if (fullMonthData) {
-      console.log(`Filtering attendance data for tab: ${activeTab}`);
       const filteredData = filterAttendanceByPeriod(fullMonthData, activeTab);
       setAttendanceData(filteredData);
     }
@@ -127,11 +122,8 @@ const AttendanceOverview = () => {
     
     try {
       const allEmployeeIds = employees.map(emp => emp.employeeId);
-      console.log('Refreshing attendance data for all employees...');
       
       const monthData = await fetchMonthAttendance(allEmployeeIds);
-      
-      console.log('Successfully refreshed attendance data');
       setFullMonthData(monthData);
       setLastRefreshed(new Date());
       
@@ -139,7 +131,7 @@ const AttendanceOverview = () => {
       const filteredData = filterAttendanceByPeriod(monthData, activeTab);
       setAttendanceData(filteredData);
     } catch (error) {
-      console.error('Error refreshing attendance data:', error);
+      console.error('Error refreshing attendance data:');
       setError('Failed to refresh attendance data. Please try again later.');
     } finally {
       setIsRefreshing(false);
@@ -165,6 +157,22 @@ const AttendanceOverview = () => {
   // Handle tab change
   const handleTabChange = (value) => {
     setActiveTab(value);
+  };
+  
+  // Navigate to employee details page
+  const handleEmployeeClick = (employeeId) => {
+    // Find the employee data
+    const employee = employees.find(emp => emp.employeeId === employeeId);
+    
+    // Get the attendance data for this employee
+    const employeeAttendance = fullMonthData ? fullMonthData[employeeId] || [] : [];
+    
+    // Store the data in localStorage to avoid additional API calls
+    localStorage.setItem('selectedEmployee', JSON.stringify(employee));
+    localStorage.setItem('selectedEmployeeAttendance', JSON.stringify(employeeAttendance));
+    
+    // Navigate to the employee details page
+    navigate(`/attendance/${employeeId}`);
   };
 
   // Format time to 12-hour format
@@ -195,7 +203,6 @@ const AttendanceOverview = () => {
     
     // Check if we have attendance data for this employee
     if (!empData || (Array.isArray(empData) && empData.length === 0)) {
-      console.log(`No attendance data found for employee ${employeeId}`);
       return {
         status: 'Yet to Check In',
         checkInTime: null,
@@ -490,7 +497,11 @@ const AttendanceOverview = () => {
                               filteredEmployees.map(employee => {
                                 const attendance = getEmployeeAttendance(employee.employeeId);
                                 return (
-                                  <TableRow key={employee.id}>
+                                  <TableRow 
+                                    key={employee.employeeId} 
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                                    onClick={() => handleEmployeeClick(employee.employeeId)}
+                                  >
                                     <TableCell className="font-medium">
                                       <div className="flex items-center gap-3">
                                         <Avatar className="h-8 w-8">
@@ -562,7 +573,11 @@ const AttendanceOverview = () => {
                                 const summary = calculateAttendanceSummary(employee.employeeId);
                                 
                                 return (
-                                  <TableRow key={employee.id}>
+                                  <TableRow 
+                                    key={employee.employeeId} 
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                                    onClick={() => handleEmployeeClick(employee.employeeId)}
+                                  >
                                     <TableCell className="font-medium">
                                       <div className="flex items-center gap-3">
                                         <Avatar className="h-8 w-8">
@@ -640,7 +655,11 @@ const AttendanceOverview = () => {
                                 const summary = calculateAttendanceSummary(employee.employeeId);
                                 
                                 return (
-                                  <TableRow key={employee.id}>
+                                  <TableRow 
+                                    key={employee.employeeId} 
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                                    onClick={() => handleEmployeeClick(employee.employeeId)}
+                                  >
                                     <TableCell className="font-medium">
                                       <div className="flex items-center gap-3">
                                         <Avatar className="h-8 w-8">
@@ -718,7 +737,11 @@ const AttendanceOverview = () => {
                                 const summary = calculateAttendanceSummary(employee.employeeId);
                                 
                                 return (
-                                  <TableRow key={employee.id}>
+                                  <TableRow 
+                                    key={employee.employeeId} 
+                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                                    onClick={() => handleEmployeeClick(employee.employeeId)}
+                                  >
                                     <TableCell className="font-medium">
                                       <div className="flex items-center gap-3">
                                         <Avatar className="h-8 w-8">

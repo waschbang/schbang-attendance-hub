@@ -14,8 +14,6 @@ const formatDateForZoho = (date) => {
 
 // Helper function to process a date record consistently
 const processDateRecord = (record, dateKey, employeeId) => {
-  console.log(`Processing record for date ${dateKey}:`, record);
-  
   // Extract check-in time
   let checkInTime = null;
   if (record.FirstIn && record.FirstIn !== '-') {
@@ -100,14 +98,11 @@ export const fetchMonthAttendance = async (employeeIds) => {
   const startDateStr = formatDateForZoho(startDate);
   const endDateStr = formatDateForZoho(today);
   
-  console.log('Date range for API request:', {
-    startDate: startDateStr,
-    endDate: endDateStr
-  });
+  // Date range for API request
+  // startDate: startDateStr
+  // endDate: endDateStr
   
   try {
-    console.log(`Fetching attendance for ${employeeIds.length} employees from ${formatDateForZoho(startDate)} to ${formatDateForZoho(today)}`);
-    
     // Create an array of promises for each employee
     const attendancePromises = employeeIds.map(async (employeeId) => {
       try {
@@ -120,11 +115,7 @@ export const fetchMonthAttendance = async (employeeIds) => {
           empId: employeeId
         };
         
-        console.log(`Making API request for employee ${employeeId} with params:`, requestParams);
-        
-        // Log the full URL for debugging
-        const fullUrl = `${API_BASE_URL}/attendance/getUserReport?sdate=${startDateStr}&edate=${endDateStr}&empId=${employeeId}`;
-        console.log(`Full URL: ${fullUrl}`);
+        // Make API request for employee with the date parameters
         
         const response = await axios.get(
           `${API_BASE_URL}/attendance/getUserReport`, {
@@ -139,17 +130,11 @@ export const fetchMonthAttendance = async (employeeIds) => {
         
         // Process the raw data
         const rawData = response.data;
-        console.log(`Raw data for employee ${employeeId}:`, JSON.stringify(rawData).substring(0, 200) + '...');
-        
-        // Log the response status
-        console.log(`Response status for ${employeeId}:`, response.status);
         
         const processedRecords = [];
         
         // Check if we have direct date keys in the response (most common format)
         if (rawData && typeof rawData === 'object' && !Array.isArray(rawData) && Object.keys(rawData).length > 0) {
-          console.log(`Processing direct date keys for employee ${employeeId}`);
-          
           // Process each date's data directly from the raw data
           Object.keys(rawData).forEach(dateKey => {
             const record = rawData[dateKey];
@@ -160,13 +145,10 @@ export const fetchMonthAttendance = async (employeeIds) => {
         }
         // If data is in response.result format (alternative format)
         else if (rawData && rawData.response && rawData.response.result) {
-          console.log(`Processing response.result format for employee ${employeeId}`);
           const dateData = rawData.response.result;
           
           // Check if there's any data
           if (Object.keys(dateData).length === 0) {
-            console.log(`No attendance data found for employee ${employeeId}`);
-            
             // Create a default record for today
             const todayFormatted = format(today, 'yyyy-MM-dd');
             const defaultRecord = {
