@@ -651,9 +651,9 @@ const AttendanceOverview = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[250px]">Employee</TableHead>
-                              <TableHead>Present</TableHead>
-                              <TableHead>Absent</TableHead>
-                              <TableHead>Holidays</TableHead>
+                              <TableHead className="text-center">Present</TableHead>
+                              <TableHead className="text-center">Absent</TableHead>
+                              <TableHead className="text-center">Holidays</TableHead>
 
                             </TableRow>
                           </TableHeader>
@@ -688,18 +688,18 @@ const AttendanceOverview = () => {
                                         </div>
                                       </div>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                    <TableCell className="text-center">
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[80px] justify-center inline-flex">
                                         {summary.present} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
+                                    <TableCell className="text-center">
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[80px] justify-center inline-flex">
                                         {summary.absent} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="secondary">
+                                    <TableCell className="text-center">
+                                      <Badge variant="secondary" className="min-w-[80px] justify-center inline-flex">
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
@@ -731,9 +731,9 @@ const AttendanceOverview = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[250px]">Employee</TableHead>
-                              <TableHead>Present</TableHead>
-                              <TableHead>Absent</TableHead>
-                              <TableHead>Holidays</TableHead>
+                              <TableHead className="text-center">Present</TableHead>
+                              <TableHead className="text-center">Absent</TableHead>
+                              <TableHead className="text-center">Holidays</TableHead>
 
                             </TableRow>
                           </TableHeader>
@@ -768,18 +768,18 @@ const AttendanceOverview = () => {
                                         </div>
                                       </div>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                    <TableCell className="text-center">
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[80px] justify-center inline-flex">
                                         {summary.present} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
+                                    <TableCell className="text-center">
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[80px] justify-center inline-flex">
                                         {summary.absent} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="secondary">
+                                    <TableCell className="text-center">
+                                      <Badge variant="secondary" className="min-w-[80px] justify-center inline-flex">
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>
@@ -811,9 +811,9 @@ const AttendanceOverview = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="w-[250px]">Employee</TableHead>
-                              <TableHead>Present</TableHead>
-                              <TableHead>Absent</TableHead>
-                              <TableHead>Holidays</TableHead>
+                              <TableHead className="text-center">Present</TableHead>
+                              <TableHead className="text-center">Absent</TableHead>
+                              <TableHead className="text-center">Holidays</TableHead>
 
                             </TableRow>
                           </TableHeader>
@@ -848,18 +848,18 @@ const AttendanceOverview = () => {
                                         </div>
                                       </div>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">
+                                    <TableCell className="text-center">
+                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[80px] justify-center inline-flex">
                                         {summary.present} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20">
+                                    <TableCell className="text-center">
+                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[80px] justify-center inline-flex">
                                         {summary.absent} days
                                       </Badge>
                                     </TableCell>
-                                    <TableCell>
-                                      <Badge variant="secondary">
+                                    <TableCell className="text-center">
+                                      <Badge variant="secondary" className="min-w-[80px] justify-center inline-flex">
                                         {summary.holidays} days
                                       </Badge>
                                     </TableCell>

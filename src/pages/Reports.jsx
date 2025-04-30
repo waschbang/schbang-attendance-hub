@@ -435,13 +435,32 @@ const Reports = () => {
           setError(`Fetching data for employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
           
           // Make a fresh API call to get attendance data for this employee and date range
-          // We'll use fetchMonthAttendance but for a specific date range
           const freshAttendanceData = await fetchMonthAttendance([employee.id], apiStartDate, apiEndDate);
           
-          setError(`Processing employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
+          // Check if there was an error fetching data for this employee
+          const employeeData = freshAttendanceData[employee.id];
+          const hasError = employeeData && employeeData.error;
           
-          // Store the employee's records in allAttendanceData
-          allAttendanceData[employee.id] = freshAttendanceData[employee.id] || [];
+          if (hasError) {
+            // Handle specific employee data fetch error
+            console.warn(`Error fetching data for ${employee.name}: ${employeeData.errorMessage}`);
+            
+            // Show a toast notification but continue with export
+            toast({
+              title: `Issue with ${employee.name}`,
+              description: 'Could not retrieve complete data. Try again later.',
+              variant: 'warning',
+              duration: 3000,
+            });
+            
+            // Continue with empty records for this employee
+            allAttendanceData[employee.id] = [];
+          } else {
+            setError(`Processing employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
+            
+            // Store the employee's records in allAttendanceData
+            allAttendanceData[employee.id] = freshAttendanceData[employee.id] || [];
+          }
           
           setError(`Processing employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
           
@@ -706,12 +725,22 @@ const Reports = () => {
           duration: 8000,
         });
       } else {
-        setError('Failed to export data. Please try again later.');
+        // Get specific error message if available
+        let errorMessage = 'Failed to export data. Please try again later.';
+        if (error.response && error.response.data) {
+          if (error.response.data.message) {
+            errorMessage = error.response.data.message;
+          } else if (typeof error.response.data === 'string') {
+            errorMessage = error.response.data;
+          }
+        }
         
-        // Show generic error toast
+        setError(errorMessage);
+        
+        // Show specific error toast
         toast({
           title: 'Export Failed',
-          description: 'Could not generate the Excel file. Please try again later.',
+          description: errorMessage,
           variant: 'destructive',
           duration: 5000,
         });

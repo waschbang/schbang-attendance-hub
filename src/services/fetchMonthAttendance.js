@@ -263,8 +263,27 @@ Object.keys(dateData).forEach(dateKey => {
         return { employeeId, records: processedRecords };
       } catch (error) {
         console.error(`Error fetching attendance for employee ${employeeId}:`, error);
-        // Return an empty array for this employee
-        return { employeeId, records: [] };
+        
+        // Extract error details for better error handling
+        let errorMessage = 'Failed to fetch attendance data';
+        
+        if (error.response && error.response.data) {
+          // If there's a specific error message from the API, use it
+          if (error.response.data.message) {
+            errorMessage = error.response.data.message;
+          } else if (typeof error.response.data === 'string') {
+            errorMessage = error.response.data;
+          }
+        }
+        
+        // Return an empty array for this employee along with error info
+        return { 
+          employeeId, 
+          records: [], 
+          error: true,
+          errorMessage,
+          errorStatus: error.response ? error.response.status : null
+        };
       }
     });
     
