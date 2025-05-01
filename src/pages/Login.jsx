@@ -33,12 +33,13 @@ const Login = () => {
       // Mock login for demo purposes
       setTimeout(() => {
         // Hardcoded credentials for demo - replace with actual auth
-        if (email === 'demo@client.com' && password === 'password') {
+        if ((email === 'demo@client.com' && password === 'password') || 
+            (email === 'hk@Schbangpeople.com' && password === 'Schbang@mumbai')) {
           toast({
             title: "Success",
             description: "Login successful!",
           });
-          localStorage.setItem('user', JSON.stringify({ email, name: 'User' }));
+          localStorage.setItem('user', JSON.stringify({ email, name: email.split('@')[0] }));
           navigate('/attendance/overview');
         } else {
           toast({
@@ -197,7 +198,7 @@ const Login = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.5 }}
         >
-          <p>© {new Date().getFullYear()} SchbangPeople. All rights reserved.</p>
+          <p> {new Date().getFullYear()} SchbangPeople. All rights reserved.</p>
         </motion.div>
       </motion.div>
     </div>
