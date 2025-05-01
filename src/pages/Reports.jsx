@@ -46,6 +46,7 @@ const Reports = () => {
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dateError, setDateError] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
+  const [exportProgress, setExportProgress] = useState(null); // New state for export progress
   const [recentExports, setRecentExports] = useState([]);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const { toast } = useToast();
@@ -372,6 +373,7 @@ const Reports = () => {
     
     setExportLoading(true);
     setError(null);
+    setExportProgress(null); // Reset export progress
     
     // Show toast indicating export has started
     toast({
@@ -414,9 +416,7 @@ const Reports = () => {
         'Day',
         'Status',
         'Check In',
-        'Check Out',
-        'Working Hours',
-        'Notes'
+        'Check Out'
       ];
       
       // Format dates for API call
@@ -430,8 +430,8 @@ const Reports = () => {
         const employee = selectedEmployeeData[i];
         
         try {
-          // Update loading message with progress
-          setError(`Fetching data for employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
+          // Update export progress
+          setExportProgress(`Fetching data for employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
           
           // Make a fresh API call to get attendance data for this employee and date range
           const freshAttendanceData = await fetchMonthAttendance([employee.id], apiStartDate, apiEndDate);
@@ -452,8 +452,6 @@ const Reports = () => {
             setExportLoading(false);
             return;
           } else {
-            setError(`Processing employee ${i+1} of ${selectedEmployeeData.length}: ${employee.name}`);
-            
             // Store the employee's records in allAttendanceData
             allAttendanceData[employee.id] = freshAttendanceData[employee.id] || [];
           }
@@ -530,6 +528,60 @@ const Reports = () => {
           totalWorkingDays,
           `${attendancePercentage}%`
         ]);
+        
+        // Create individual employee sheet with daily check-in/check-out times
+        const employeeSheetData = [employeeSheetHeaders];
+        
+        // Sort records by date (ascending)
+        const sortedRecords = [...employeeRecords].sort((a, b) => {
+          return new Date(a.date) - new Date(b.date);
+        });
+        
+        // Add each day's attendance record to the employee's sheet
+        sortedRecords.forEach(record => {
+          const recordDate = new Date(record.date);
+          const formattedDate = format(recordDate, 'dd-MM-yyyy');
+          const dayName = format(recordDate, 'EEEE');
+          
+          // Determine status
+          let status = 'Absent';
+          if (record.checkInTime) {
+            status = 'Present';
+          } else if (record.isLeave) {
+            status = 'Leave';
+          } else if (record.isHoliday) {
+            status = 'Holiday';
+          } else if (record.isWeekend) {
+            status = 'Weekend';
+          }
+          
+          // Format check-in and check-out times
+          const checkInTime = record.checkInTime || '';
+          const checkOutTime = record.checkOutTime || '';
+          
+          // Add row to employee sheet
+          employeeSheetData.push([
+            formattedDate,
+            dayName,
+            status,
+            checkInTime,
+            checkOutTime
+          ]);
+        });
+        
+        // Create and add employee sheet to workbook
+        const employeeSheet = XLSX.utils.aoa_to_sheet(employeeSheetData);
+        
+        // Apply some styling to the sheet (header bold, column widths)
+        const headerStyle = { font: { bold: true } };
+        
+        // Add the employee sheet to the workbook with the employee's name as the sheet name
+        // Clean the name to ensure it's a valid sheet name (max 31 chars, no special chars)
+        const sheetName = employee.name
+          .replace(/[\\/*[\]?:]/g, '') // Remove invalid sheet name characters
+          .substring(0, 31); // Excel sheet names limited to 31 chars
+          
+        XLSX.utils.book_append_sheet(wb, employeeSheet, sheetName);
       }
       
       // Add summary sheet to workbook
@@ -548,8 +600,7 @@ const Reports = () => {
         ['Notes:'],
         ['1. Each employee has their own sheet with daily attendance records in chronological order.'],
         ['2. The Summary sheet provides an overview of attendance statistics for each employee.'],
-        ['3. Working hours are calculated only when both check-in and check-out times are available.'],
-        ['4. Attendance percentage is calculated based on working days (excluding holidays and weekends).'],
+        ['3. Attendance percentage is calculated based on working days (excluding holidays and weekends).'],
       ];
       
       const infoSheet = XLSX.utils.aoa_to_sheet(infoData);
@@ -661,6 +712,7 @@ const Reports = () => {
       }
     } finally {
       setExportLoading(false);
+      setExportProgress(null); // Clear export progress
     }
   };
   
@@ -826,7 +878,11 @@ const Reports = () => {
                   {exportLoading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Exporting...
+                      {exportProgress ? (
+                        <span>Exporting... {exportProgress}</span>
+                      ) : (
+                        <span>Exporting...</span>
+                      )}
                     </>
                   ) : (
                     <div className='p-2 items-center flex'>
@@ -840,13 +896,13 @@ const Reports = () => {
           </Card>
 
           {/* Error State */}
-          {error ? (
+          {error && !exportLoading && (
             <Alert variant="destructive" className="mb-8">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-          ) : null}
+          )}
 
           {/* Recent Exports */}
           {recentExports.length > 0 && (
