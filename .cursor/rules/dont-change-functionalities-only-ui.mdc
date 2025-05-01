@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+[AttendanceDetails.jsx](mdc:src/pages/AttendanceDetails.jsx)[AttendanceOverview.jsx](mdc:src/pages/AttendanceOverview.jsx)[EmployeeProfile.jsx](mdc:src/pages/EmployeeProfile.jsx) dont change the existing functionalities of the code. Only make changes to the ui

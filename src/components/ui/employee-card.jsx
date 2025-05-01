@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
 import { Badge } from './badge';
 import { Card, CardContent } from './card';
-import { Mail, Phone } from 'lucide-react';
+import { Mail, Phone, MapPin, Calendar, Building2 } from 'lucide-react';
 
 const EmployeeCard = ({ employee }) => {
   const formatDate = (dateString) => {
@@ -24,63 +24,78 @@ const EmployeeCard = ({ employee }) => {
   };
   
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md h-full flex flex-col">
-      <CardContent className="p-0 flex-1 flex flex-col">
-        <div className="p-6 flex-1">
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card className="group overflow-hidden bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur-xl border-slate-700/50 hover:border-slate-600/50 transition-all duration-300">
+        <CardContent className="p-6">
+          {/* Header Section */}
           <div className="flex items-start gap-4">
-            <Avatar className="h-16 w-16 rounded-md border">
-              <AvatarImage src={employee.photo} alt={employee.fullName} />
-              <AvatarFallback className="rounded-md text-lg bg-primary/10 text-primary">
+            <Avatar className="h-16 w-16 rounded-xl border-2 border-slate-700/50 group-hover:border-slate-600/50 transition-colors">
+              <AvatarImage src={employee.photo} alt={employee.fullName} className="object-cover" />
+              <AvatarFallback className="rounded-xl text-lg bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-medium">
                 {getInitials(employee.fullName)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1 space-y-1">
-              <h3 className="font-medium text-lg">{employee.fullName}</h3>
-              <p className="text-muted-foreground">{employee.designation}</p>
-              <Badge variant="outline" className="mt-1 font-normal">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-lg text-slate-100 truncate mb-1">{employee.fullName}</h3>
+              <p className="text-slate-400 text-sm mb-2">{employee.designation}</p>
+              <Badge 
+                variant="outline" 
+                className="bg-slate-800/50 border-slate-700/50 text-slate-300 font-normal"
+              >
                 {employee.employeeId}
               </Badge>
             </div>
           </div>
           
-          <div className="mt-6 space-y-4 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
+          {/* Contact Info Section */}
+          <div className="mt-6 space-y-3 text-sm">
+            <div className="flex items-center gap-2.5 text-slate-400">
               <Mail className="h-4 w-4" />
-              <span className="truncate">{employee.email}</span>
+              <span className="truncate hover:text-slate-300 transition-colors">
+                {employee.email}
+              </span>
             </div>
             {employee.mobile && (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2.5 text-slate-400">
                 <Phone className="h-4 w-4" />
-                <span>{employee.mobile}</span>
+                <span className="hover:text-slate-300 transition-colors">
+                  {employee.mobile}
+                </span>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              <div className="text-muted-foreground">Department</div>
-              <div className="text-right font-medium">{employee.department}</div>
+          </div>
+          
+          {/* Details Grid */}
+          <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center gap-2 text-slate-400">
+              <Building2 className="h-4 w-4" />
+              <span className="truncate">{employee.department}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="text-muted-foreground">Location</div>
-              <div className="text-right font-medium">{employee.location}</div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <MapPin className="h-4 w-4" />
+              <span className="truncate">{employee.location}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="text-muted-foreground">Joined</div>
-              <div className="text-right font-medium">{formatDate(employee.dateOfJoining)}</div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <Calendar className="h-4 w-4" />
+              <span>{formatDate(employee.dateOfJoining)}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="text-muted-foreground">Status</div>
-              <div className="text-right">
-                <Badge 
-                  variant={employee.status === 'Active' ? 'default' : 'secondary'}
-                  className={employee.status === 'Active' ? 'bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20' : ''}
-                >
-                  {employee.status}
-                </Badge>
-              </div>
+            <div className="flex items-center gap-2 justify-end">
+              <Badge 
+                variant={employee.status === 'Active' ? 'default' : 'secondary'}
+                className={employee.status === 'Active' 
+                  ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20 border-green-500/20' 
+                  : 'bg-slate-700/50 text-slate-300 border-slate-600/50'}
+              >
+                {employee.status}
+              </Badge>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 

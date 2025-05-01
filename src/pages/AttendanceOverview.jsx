@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, subDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -11,7 +11,11 @@ import {
   Filter, 
   Loader2, 
   Calendar as CalendarIcon,
-  Search
+  Search,
+  Users,
+  Eye,
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react';
 
 import DashboardLayout from '../components/layouts/DashboardLayout';
@@ -29,6 +33,12 @@ import {
   TableHeader, 
   TableRow 
 } from '../components/ui/table';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../components/ui/accordion";
 
 import { fetchEmployeesByDepartment } from '../services/employeeService';
 import { formatTimeForDisplay } from '../services/attendanceService';
@@ -55,7 +65,8 @@ const AttendanceOverview = () => {
     visible: { 
       opacity: 1,
       transition: { 
-        staggerChildren: 0.1
+        staggerChildren: 0.1,
+        duration: 0.5
       }
     }
   };
@@ -65,8 +76,18 @@ const AttendanceOverview = () => {
     visible: { 
       y: 0, 
       opacity: 1,
-      transition: { duration: 0.4, ease: [0.25, 0.1, 0.25, 1.0] }
+      transition: { 
+        duration: 0.4,
+        ease: [0.25, 0.1, 0.25, 1.0]
+      }
     }
+  };
+
+  const [openAccordion, setOpenAccordion] = useState(null);
+
+  // Function to handle accordion state
+  const handleAccordionChange = (value) => {
+    setOpenAccordion(value ? value : null);
   };
 
   // Fetch employees and their full month attendance data once on component mount and every 10 minutes
@@ -409,62 +430,279 @@ const AttendanceOverview = () => {
     return name.split(' ').map(part => part[0]).join('').toUpperCase();
   };
 
-  // If the component is in full-screen loading state, show the Schbanging animation
+  // Function to render the table header based on active tab
+  const renderTableHeader = () => {
+    if (activeTab === 'today') {
+      return (
+        <TableRow className="bg-slate-800/50 hover:bg-slate-800/50">
+          <TableHead className="text-slate-400 font-medium">Employee</TableHead>
+          <TableHead className="text-slate-400 font-medium">Department</TableHead>
+          <TableHead className="text-slate-400 font-medium">Status</TableHead>
+          <TableHead className="text-slate-400 font-medium">Check In</TableHead>
+          <TableHead className="text-slate-400 font-medium">Check Out</TableHead>
+          <TableHead className="text-slate-400 font-medium">Summary</TableHead>
+        </TableRow>
+      );
+    }
+    return (
+      <TableRow className="bg-slate-800/50 hover:bg-slate-800/50">
+        <TableHead className="text-slate-400 font-medium">Employee</TableHead>
+        <TableHead className="text-slate-400 font-medium">Department</TableHead>
+        <TableHead className="text-slate-400 font-medium">Employee Activity</TableHead>
+        <TableHead className="text-slate-400 font-medium">Summary</TableHead>
+      </TableRow>
+    );
+  };
+
+  // Function to render activity details for multiple days
+  const renderActivityDetails = (employeeId) => {
+    const attendance = getEmployeeAttendance(employeeId);
+    if (!Array.isArray(attendance)) return null;
+
+    return (
+      <div className="relative">
+        <Accordion 
+          type="single" 
+          collapsible 
+          className="w-full"
+          value={openAccordion}
+          onValueChange={handleAccordionChange}
+        >
+          <AccordionItem value={employeeId} className="border-none">
+            <AccordionTrigger className="flex items-center gap-2 py-2 px-4 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors [&[data-state=open]>svg]:rotate-180">
+              <span className="text-sm font-medium text-slate-100">View Activity</span>
+              <ChevronDown className="h-4 w-4 text-slate-400 transition-transform duration-200" />
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="absolute z-50 left-0 mt-2 w-[400px] bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-xl">
+                <div className="max-h-[300px] overflow-y-auto p-4 space-y-3">
+                  {attendance.map((day, index) => (
+                    <div 
+                      key={day.date} 
+                      className={`p-4 rounded-lg ${index % 2 === 0 ? 'bg-slate-800/50' : 'bg-slate-800/30'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-100">{day.date}</p>
+                          <div className="flex items-center gap-4 mt-1">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-green-400" />
+                              <span className="text-sm text-slate-300">
+                                In: {day.checkInTime ? formatTime(day.checkInTime) : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-amber-400" />
+                              <span className="text-sm text-slate-300">
+                                Out: {day.checkOutTime ? formatTime(day.checkOutTime) : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <Badge 
+                          variant={getStatusBadgeVariant(day.status)}
+                          className="font-medium"
+                        >
+                          {day.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+        
+        {/* Backdrop blur when accordion is open */}
+        {openAccordion === employeeId && (
+          <div 
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-40"
+            onClick={() => setOpenAccordion(null)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // Function to render table row based on active tab
+  const renderTableRow = (employee, index) => {
+    const attendance = getEmployeeAttendance(employee.employeeId);
+    const summary = calculateAttendanceSummary(employee.employeeId);
+
+    return (
+      <motion.tr
+        key={employee.employeeId}
+        className={`
+          ${index % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/20'}
+          transition-all duration-200 hover:bg-slate-700/50
+        `}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.2, delay: index * 0.05 }}
+      >
+        <TableCell>
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border-2 border-slate-700">
+              <AvatarImage src={employee.photo} alt={employee.fullName} />
+              <AvatarFallback className="bg-slate-700 text-slate-300">
+                {getInitials(employee.fullName)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-medium text-slate-100">{employee.fullName}</div>
+              <div className="text-sm text-slate-400">{employee.designation}</div>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="text-slate-300">{employee.department}</TableCell>
+        
+        {activeTab === 'today' ? (
+          <>
+            <TableCell>
+              <Badge 
+                variant={getStatusBadgeVariant(attendance?.status)}
+                className="font-medium"
+              >
+                {attendance?.status || 'Not Available'}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-slate-300">
+              {attendance?.checkInTime ? formatTime(attendance.checkInTime) : 'N/A'}
+            </TableCell>
+            <TableCell className="text-slate-300">
+              {attendance?.checkOutTime ? formatTime(attendance.checkOutTime) : 'N/A'}
+            </TableCell>
+          </>
+        ) : (
+          <TableCell>
+            {renderActivityDetails(employee.employeeId)}
+          </TableCell>
+        )}
+        
+        <TableCell>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <UserCheck className="h-4 w-4 text-green-400" />
+              <span className="text-sm text-slate-300">{summary.present}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <UserX className="h-4 w-4 text-red-400" />
+              <span className="text-sm text-slate-300">{summary.absent}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-amber-400" />
+              <span className="text-sm text-slate-300">{summary.late}</span>
+            </div>
+          </div>
+        </TableCell>
+      </motion.tr>
+    );
+  };
+
+  // If the component is in full-screen loading state, show the loading animation
   if (isLoading) {
     return (
       <DashboardLayout>
         <div className="container px-4 py-8 max-w-7xl mx-auto">
           <motion.div 
-            className="flex flex-col items-center justify-center min-h-[70vh]"
+            className="flex flex-col items-center justify-center min-h-[70vh] gap-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
             <motion.div 
+              className="relative w-24 h-24"
+            >
+              <motion.div 
+                className="absolute inset-0"
               animate={{ 
-                rotate: 360 
+                  rotate: 360,
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 1, 0.5]
               }}
               transition={{ 
+                  rotate: {
                 repeat: Infinity, 
                 duration: 2,
                 ease: "linear"
-              }}
-            >
-              <Loader2 className="h-24 w-24 text-primary" />
+                  },
+                  scale: {
+                    repeat: Infinity,
+                    duration: 1.5,
+                    ease: "easeInOut"
+                  },
+                  opacity: {
+                    repeat: Infinity,
+                    duration: 1.5,
+                    ease: "easeInOut"
+                  }
+                }}
+              >
+                <div className="w-full h-full rounded-xl bg-gradient-to-r from-primary via-secondary to-primary opacity-50 blur-xl" />
+              </motion.div>
+              <motion.div 
+                className="absolute inset-0 flex items-center justify-center"
+                animate={{ 
+                  rotate: -360
+                }}
+                transition={{ 
+                  repeat: Infinity,
+                  duration: 4,
+                  ease: "linear"
+                }}
+              >
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-r from-primary to-secondary" />
+              </motion.div>
+              <motion.div 
+                className="absolute inset-0 flex items-center justify-center"
+                initial={{ scale: 0.8 }}
+                animate={{ 
+                  rotate: 360,
+                  scale: [0.8, 1, 0.8]
+                }}
+                transition={{ 
+                  rotate: {
+                    repeat: Infinity,
+                    duration: 3,
+                    ease: "linear"
+                  },
+                  scale: {
+                    repeat: Infinity,
+                    duration: 2,
+                    ease: "easeInOut"
+                  }
+                }}
+              >
+                <div className="w-8 h-8 rounded-lg bg-background shadow-xl" />
+              </motion.div>
             </motion.div>
             
+            <div className="text-center space-y-3">
             <motion.h2 
-              className="text-3xl font-bold text-primary mb-4"
+                className="text-2xl font-medium text-foreground"
               animate={{ 
-                scale: [1, 1.1, 1],
-                opacity: [0.7, 1, 0.7]
+                  opacity: [0.5, 1, 0.5]
               }}
               transition={{ 
                 repeat: Infinity, 
-                duration: 1.5,
+                  duration: 2,
                 ease: "easeInOut" 
               }}
             >
-              Schbanging!!
+                Loading Data
             </motion.h2>
             
             <motion.p 
-              className="text-gray-500 text-md mt-2"
+                className="text-muted-foreground text-sm"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              Fetching data for {employees.length} employees...
+                Fetching attendance records...
             </motion.p>
-            
-            <motion.p 
-              className="text-gray-400 text-sm mt-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 1, duration: 0.5 }}
-            >
-              This may take a moment due to API rate limits
-            </motion.p>
+            </div>
           </motion.div>
         </div>
       </DashboardLayout>
@@ -474,406 +712,179 @@ const AttendanceOverview = () => {
   // Regular render with data
   return (
     <DashboardLayout>
-      <div className="container px-4 py-8 max-w-7xl mx-auto">
+      <div className={`min-h-screen bg-slate-900 font-inter ${openAccordion ? 'relative' : ''}`}>
+        <div className="container px-4 py-8 max-w-7xl mx-auto space-y-6">
+          {/* Header */}
         <motion.div 
-          className="flex flex-col space-y-6"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {/* Refresh status and button */}
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-muted-foreground">
-              {lastRefreshed ? (
-                <span>Last updated: {format(lastRefreshed, 'dd MMM yyyy, hh:mm a')}</span>
-              ) : (
-                <span>Loading attendance data...</span>
-              )}
-            </div>
-            <Button 
-              onClick={refreshAttendanceData} 
-              disabled={isRefreshing || isLoading}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                    <path d="M21 3v5h-5"/>
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                    <path d="M3 21v-5h5"/>
-                  </svg>
-                  Refresh Data
-                </>
-              )}
-            </Button>
-          </div>
-          
-          <motion.div 
-            className="mb-8 flex items-center gap-4"
+            className="flex items-center gap-4 mb-8"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="bg-primary/10 p-3 rounded-lg">
-              <Calendar className="h-8 w-8 text-primary" />
+            <div className="bg-blue-500/10 p-3 rounded-xl backdrop-blur-sm border border-blue-500/20">
+              <Calendar className="h-8 w-8 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-light mb-2">Attendance Overview</h1>
-              <p className="text-muted-foreground">
-                Track employee attendance and working hours
+              <h1 className="text-2xl font-semibold text-slate-100">Attendance Overview</h1>
+              <p className="text-sm text-slate-400">
+                {lastRefreshed && `Last updated: ${format(lastRefreshed, 'MMM d, yyyy h:mm a')}`}
               </p>
             </div>
           </motion.div>
           
-          <Tabs defaultValue="today" value={activeTab} onValueChange={handleTabChange} className="mb-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-              <div className="flex flex-col gap-1">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
-                  <TabsTrigger value="today">Today</TabsTrigger>
-                  <TabsTrigger value="last3days">Last 3 Days</TabsTrigger>
-                  <TabsTrigger value="last7days">Last 7 Days</TabsTrigger>
-                  <TabsTrigger value="month">Month</TabsTrigger>
-                </TabsList>
-                <div className="text-xs text-muted-foreground ml-2">
-                  Current view: <span className="font-medium text-primary">{activeTab === 'today' ? 'Today' : 
-                    activeTab === 'last3days' ? 'Last 3 Days' : 
-                    activeTab === 'last7days' ? 'Last 7 Days' : 'Month (Last 30 Days)'}</span>
+          {/* Stats Cards */}
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div 
+              variants={itemVariants}
+              className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 
+                transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/30
+                hover:scale-[1.02]"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-400">Total Employees</p>
+                  <h3 className="text-2xl font-bold text-slate-100">{employees.length}</h3>
+                </div>
+                <div className="p-3 bg-blue-500/10 rounded-xl">
+                  <Users className="h-6 w-6 text-blue-400" />
+              </div>
+              </div>
+            </motion.div>
+
+            <motion.div 
+              variants={itemVariants}
+              className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 
+                transition-all duration-300 hover:shadow-xl hover:shadow-green-500/10 hover:border-green-500/30
+                hover:scale-[1.02]"
+            >
+              <div className="flex items-center justify-between">
+                                        <div>
+                  <p className="text-sm font-medium text-slate-400">Present Today</p>
+                  <h3 className="text-2xl font-bold text-slate-100">
+                    {filteredEmployees.filter(emp => {
+                      const attendance = getEmployeeAttendance(emp.employeeId);
+                      return attendance && attendance.status === 'Present';
+                    }).length}
+                  </h3>
+                                        </div>
+                <div className="p-3 bg-green-500/10 rounded-xl">
+                  <UserCheck className="h-6 w-6 text-green-400" />
+                                      </div>
+                      </div>
+            </motion.div>
+
+            <motion.div 
+              variants={itemVariants}
+              className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 
+                transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-500/30
+                hover:scale-[1.02]"
+            >
+              <div className="flex items-center justify-between">
+                                        <div>
+                  <p className="text-sm font-medium text-slate-400">Late Check-ins</p>
+                  <h3 className="text-2xl font-bold text-slate-100">
+                    {filteredEmployees.filter(emp => {
+                      const attendance = getEmployeeAttendance(emp.employeeId);
+                      return attendance && attendance.isLate;
+                    }).length}
+                  </h3>
+                                        </div>
+                <div className="p-3 bg-amber-500/10 rounded-xl">
+                  <Clock className="h-6 w-6 text-amber-400" />
+                                      </div>
+                      </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Employee Table */}
+          <motion.div 
+            className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <div className="p-6 border-b border-slate-700/50">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                                        <div>
+                  <h3 className="text-lg font-semibold text-slate-100">Employee Attendance</h3>
+                  <p className="text-sm text-slate-400">View and manage employee attendance records</p>
+                                        </div>
+                
+                {/* Modern Segmented Control */}
+                <div className="flex items-center gap-4">
+                  <div className="relative flex flex-nowrap items-center bg-background/50 backdrop-blur-md rounded-full p-1 border border-border overflow-x-auto max-w-full no-scrollbar">
+                    {['today', 'last3days', 'last7days', 'month'].map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => handleTabChange(tab)}
+                        className={`
+                          relative min-w-[80px] px-4 py-2 text-sm font-medium rounded-full
+                          transition-all duration-200 ease-in-out whitespace-nowrap
+                          touch-manipulation select-none
+                          ${activeTab === tab 
+                            ? 'text-primary-foreground bg-primary shadow-lg shadow-primary/20 transform scale-100' 
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 transform scale-95'
+                          }
+                          focus:outline-none
+                          active:scale-90
+                          disabled:pointer-events-none
+                          -webkit-tap-highlight-color: transparent;
+                        `}
+                        aria-pressed={activeTab === tab}
+                        disabled={activeTab === tab}
+                      >
+                        {tab === 'today' && 'Today'}
+                        {tab === 'last3days' && '3 Days'}
+                        {tab === 'last7days' && '7 Days'}
+                        {tab === 'month' && 'Month'}
+                      </button>
+                    ))}
+                                      </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search employees..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-slate-800/50 border-slate-700/50 text-slate-100 placeholder:text-slate-500"
+                      />
+                      </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-slate-800/50 border-slate-700/50 text-slate-100 hover:bg-slate-700/50"
+                      onClick={refreshAttendanceData}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
               </div>
-              
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search employees..."
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
             </div>
-            
-            {error ? (
-              <Card className="bg-red-50 border-red-200">
-                <CardContent className="p-6 text-center text-red-600">
-                  {error}
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <TabsContent value="today" className="mt-0">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-xl font-medium">Today's Attendance</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(), 'EEEE, MMMM d, yyyy')}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Check In</TableHead>
-                              <TableHead>Check Out</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredEmployees.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                  No employees found matching your search
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredEmployees.map(employee => {
-                                const attendance = getEmployeeAttendance(employee.employeeId);
-                                return (
-                                  <TableRow 
-                                    key={employee.employeeId} 
-                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                                    onClick={() => handleEmployeeClick(employee.employeeId)}
-                                  >
-                                    <TableCell className="font-medium">
-                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
-                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                          <AvatarFallback className="bg-primary/10 text-primary">
-                                            {getInitials(employee.fullName)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
-                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant={getStatusBadgeVariant(attendance.status)}>
-                                        {attendance.status}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      {attendance.checkInTime ? formatTime(attendance.checkInTime) : 'N/A'}
-                                    </TableCell>
-                                    <TableCell>
-                                      {attendance.checkOutTime ? formatTime(attendance.checkOutTime) : 'N/A'}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="last3days" className="mt-0">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-xl font-medium">Last 3 Days Attendance</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {format(subDays(new Date(), 2), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
-                              <TableHead className="text-center">Present</TableHead>
-                              <TableHead className="text-center">Absent</TableHead>
-                              <TableHead className="text-center">Holidays</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredEmployees.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                  No employees found matching your search
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredEmployees.map(employee => {
-                                const summary = calculateAttendanceSummary(employee.employeeId);
-                                
-                                return (
-                                  <TableRow 
-                                    key={employee.employeeId} 
-                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                                    onClick={() => handleEmployeeClick(employee.employeeId)}
-                                  >
-                                    <TableCell className="font-medium">
-                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
-                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                          <AvatarFallback className="bg-primary/10 text-primary">
-                                            {getInitials(employee.fullName)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
-                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
-                                        {summary.present} days
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
-                                        {summary.absent} days
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="secondary" className="min-w-[80px] justify-center inline-flex">
-                                        {summary.holidays} days
-                                      </Badge>
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="last7days" className="mt-0">
-                  {/* Similar to last3days tab */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-xl font-medium">Last 7 Days Attendance</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {format(subDays(new Date(), 6), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Table content similar to last3days */}
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
-                              <TableHead className="text-center">Present</TableHead>
-                              <TableHead className="text-center">Absent</TableHead>
-                              <TableHead className="text-center">Holidays</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredEmployees.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                  No employees found matching your search
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredEmployees.map(employee => {
-                                const summary = calculateAttendanceSummary(employee.employeeId);
-                                
-                                return (
-                                  <TableRow 
-                                    key={employee.employeeId} 
-                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                                    onClick={() => handleEmployeeClick(employee.employeeId)}
-                                  >
-                                    <TableCell className="font-medium">
-                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
-                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                          <AvatarFallback className="bg-primary/10 text-primary">
-                                            {getInitials(employee.fullName)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
-                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
-                                        {summary.present} days
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
-                                        {summary.absent} days
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="secondary" className="min-w-[80px] justify-center inline-flex">
-                                        {summary.holidays} days
-                                      </Badge>
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-                
-                <TabsContent value="month" className="mt-0">
-                  {/* Similar to last7days tab but for the full month */}
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-xl font-medium">Monthly Attendance</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {format(subDays(new Date(), 30), 'MMM d')} - {format(new Date(), 'MMM d, yyyy')}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Table content similar to last7days */}
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[140px] sm:w-[250px]">Employee</TableHead>
-                              <TableHead className="text-center">Present</TableHead>
-                              <TableHead className="text-center">Absent</TableHead>
-                              <TableHead className="text-center">Holidays</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredEmployees.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                                  No employees found matching your search
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredEmployees.map(employee => {
-                                const summary = calculateAttendanceSummary(employee.employeeId);
-                                
-                                return (
-                                  <TableRow 
-                                    key={employee.employeeId} 
-                                    className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                                    onClick={() => handleEmployeeClick(employee.employeeId)}
-                                  >
-                                    <TableCell className="font-medium">
-                                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                                        <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
-                                          <AvatarImage src={employee.photo} alt={employee.fullName} />
-                                          <AvatarFallback className="bg-primary/10 text-primary">
-                                            {getInitials(employee.fullName)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                          <div className="font-medium text-sm sm:text-base truncate max-w-[80px] sm:max-w-full">{employee.fullName}</div>
-                                          <div className="text-xs text-muted-foreground">{employee.employeeId}</div>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="success" className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
-                                        {summary.present} days
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="destructive" className="bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-500/20 min-w-[60px] sm:min-w-[80px] text-xs sm:text-sm justify-center inline-flex">
-                                        {summary.absent} days
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Badge variant="secondary" className="min-w-[80px] justify-center inline-flex">
-                                        {summary.holidays} days
-                                      </Badge>
-                                    </TableCell>
 
-                                  </TableRow>
-                                );
-                              })
-                            )}
+            <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                  {renderTableHeader()}
+                          </TableHeader>
+                          <TableBody>
+                  <AnimatePresence>
+                    {filteredEmployees.map((employee, index) => renderTableRow(employee, index))}
+                  </AnimatePresence>
                           </TableBody>
                         </Table>
                       </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </>
-            )}
-          </Tabs>
         </motion.div>
+        </div>
       </div>
     </DashboardLayout>
   );

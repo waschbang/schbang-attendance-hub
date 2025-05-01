@@ -1,11 +1,9 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useToast } from '../components/ui/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import ThemeToggle from '../components/ThemeToggle';
 import { motion } from 'framer-motion';
 import logo from "../assets/schbanghashtag.png";
 
@@ -88,16 +86,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-black p-2 sm:p-4 relative">
-      <motion.div 
-        className="absolute top-6 right-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
-      >
-        <ThemeToggle />
-      </motion.div>
-      
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-black p-2 sm:p-4 relative">
       <motion.div 
         className="w-full max-w-md mx-auto"
         variants={containerVariants}
