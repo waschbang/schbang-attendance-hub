@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { useToast } from '../components/ui/use-toast';
+import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import logo from "../assets/schbanghashtag.png";
@@ -13,16 +13,13 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     
     if (!email || !password) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Please enter both email and password.",
-        variant: "destructive",
       });
       return;
     }
@@ -33,19 +30,29 @@ const Login = () => {
       // Mock login for demo purposes
       setTimeout(() => {
         // Hardcoded credentials for demo - replace with actual auth
-        if ((email === 'demo@client.com' && password === 'password') || 
-            (email === 'hk@Schbangpeople.com' && password === 'Schbang@mumbai')) {
-          toast({
-            title: "Success",
-            description: "Login successful!",
+        if (email === 'demo@client.com' && password === 'password') {
+          toast.success("Login successful!", {
+            description: "Welcome back!",
           });
-          localStorage.setItem('user', JSON.stringify({ email, name: email.split('@')[0] }));
+          localStorage.setItem('user', JSON.stringify({ email, name: 'User' }));
           navigate('/attendance/overview');
+        } else if (email === 'hk@Schbangpeople.com' && password === 'Schbang@mumbai') {
+          toast.success("Login successful!", {
+            description: "Welcome back, Harshil!",
+          });
+          localStorage.setItem('user', JSON.stringify({ email, name: 'Harshil Karia' }));
+          navigate('/attendance/overview');
+        } else if (email === 'hk@Schbangpeople.com' && password !== 'Schbang@mumbai') {
+          toast.error("Authentication Error", {
+            description: "Incorrect password for this account. Please try again.",
+          });
+        } else if (email === 'demo@client.com' && password !== 'password') {
+          toast.error("Authentication Error", {
+            description: "Incorrect password for this account. Please try again.",
+          });
         } else {
-          toast({
-            title: "Error",
-            description: "Invalid email or password.",
-            variant: "destructive",
+          toast.error("Account Not Found", {
+            description: "No account exists with this email. Please check your credentials.",
           });
         }
         setIsLoading(false);
@@ -53,10 +60,8 @@ const Login = () => {
       
     } catch (error) {
       console.error('Login error:', error);
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "An error occurred during login. Please try again.",
-        variant: "destructive",
       });
       setIsLoading(false);
     }
