@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -12,7 +12,16 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      navigate('/attendance/overview');
+    }
+  }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -34,13 +43,17 @@ const Login = () => {
           toast.success("Login successful!", {
             description: "Welcome back!",
           });
-          localStorage.setItem('user', JSON.stringify({ email, name: 'User' }));
+          const userData = { email, name: 'User' };
+          localStorage.setItem('user', JSON.stringify(userData));
+          localStorage.setItem('isAuthenticated', 'true');
           navigate('/attendance/overview');
         } else if (email === 'hk@Schbangpeople.com' && password === 'Schbang@mumbai') {
           toast.success("Login successful!", {
             description: "Welcome back, Harshil!",
           });
-          localStorage.setItem('user', JSON.stringify({ email, name: 'Harshil Karia' }));
+          const userData = { email, name: 'Harshil Karia' };
+          localStorage.setItem('user', JSON.stringify(userData));
+          localStorage.setItem('isAuthenticated', 'true');
           navigate('/attendance/overview');
         } else if (email === 'hk@Schbangpeople.com' && password !== 'Schbang@mumbai') {
           toast.error("Authentication Error", {
@@ -162,28 +175,22 @@ const Login = () => {
           </motion.div>
           
           <motion.div 
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0"
+            className="flex items-center space-x-2"
             variants={itemVariants}
           >
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="remember"
-                className="h-4 w-4 rounded-sm border-gray-200 dark:border-gray-800 transition-colors"
-              />
-              <label 
-                htmlFor="remember"
-                className="text-sm text-muted-foreground font-light"
-              >
-                Remember me
-              </label>
-            </div>
-            <a
-              href="#"
-              className="text-sm text-primary hover:underline font-light transition-all duration-200"
+            <input
+              type="checkbox"
+              id="remember"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded-sm border-gray-200 dark:border-gray-800 transition-colors"
+            />
+            <label 
+              htmlFor="remember"
+              className="text-sm text-muted-foreground font-light"
             >
-              Forgot password?
-            </a>
+              Remember me
+            </label>
           </motion.div>
           
           <motion.div variants={itemVariants}>

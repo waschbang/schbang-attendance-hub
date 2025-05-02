@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <base href="/" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -9,6 +10,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SchbangPeople - Attendance Hub</title>
     <meta name="description" content="Employee attendance tracking portal for Schbang" />
+    <script type="text/javascript">
+      // Single Page App routing fix for direct URL access
+      (function() {
+        // This script helps with GitHub Pages and Vercel deployments
+        var pathSegmentsToKeep = 0;
+        var l = window.location;
+        
+        // Check if we need to redirect
+        if (l.search) {
+          // Parse URL parameters
+          var q = {};
+          l.search.slice(1).split('&').forEach(function(v) {
+            var a = v.split('=');
+            q[a[0]] = a.slice(1).join('=').replace(/~and~/g, '&');
+          });
+          
+          // If the _redirect parameter is present, use it
+          if (q._redirect) {
+            window.history.replaceState(
+              null, null,
+              l.pathname.slice(0, -1) + (q._redirect || '') +
+              (q._query || '') + l.hash
+            );
+          }
+        }
+      }());
+    </script>
   </head>
   <body>
     <div id="root"></div>
