@@ -55,11 +55,23 @@ const Login = () => {
           localStorage.setItem('user', JSON.stringify(userData));
           localStorage.setItem('isAuthenticated', 'true');
           navigate('/attendance/overview');
+        } else if (email === 'client@schbang.com' && password === 'Schbang#678') {
+          toast.success("Login successful!", {
+            description: "Welcome back!",
+          });
+          const userData = { email, name: 'Client' };
+          localStorage.setItem('user', JSON.stringify(userData));
+          localStorage.setItem('isAuthenticated', 'true');
+          navigate('/attendance/overview');
         } else if (email === 'hk@Schbangpeople.com' && password !== 'Schbang@mumbai') {
           toast.error("Authentication Error", {
             description: "Incorrect password for this account. Please try again.",
           });
         } else if (email === 'demo@client.com' && password !== 'password') {
+          toast.error("Authentication Error", {
+            description: "Incorrect password for this account. Please try again.",
+          });
+        } else if (email === 'client@schbang.com' && password !== 'Schbang#678') {
           toast.error("Authentication Error", {
             description: "Incorrect password for this account. Please try again.",
           });
