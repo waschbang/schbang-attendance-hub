@@ -1,6 +1,6 @@
-import axios from 'axios';
+import axios from "axios";
 
-import { ZOHO_CONFIG } from '../config/apiConfig';
+import { ZOHO_CONFIG } from "../config/apiConfig";
 
 // Use the configuration from apiConfig.js
 const ZOHO_AUTH_CONFIG = {
@@ -31,78 +31,68 @@ let refreshTimer = null;
  */
 export const refreshAccessToken = async (retryCount = 0, delay = 1000) => {
   try {
-    console.log(`Refreshing Zoho access token... (Attempt ${retryCount + 1})`);
-    
     // If we've already retried too many times, use the existing token if it exists
     if (retryCount >= 3 && tokenData.accessToken) {
-      console.warn(`Too many refresh attempts. Using existing token until rate limit clears.`);
       return tokenData.accessToken;
     }
-    
+
     const formData = new URLSearchParams();
-    formData.append('client_id', ZOHO_AUTH_CONFIG.clientId);
-    formData.append('client_secret', ZOHO_AUTH_CONFIG.clientSecret);
-    formData.append('refresh_token', ZOHO_AUTH_CONFIG.refreshToken);
-    formData.append('grant_type', 'refresh_token');
-    
+    formData.append("client_id", ZOHO_AUTH_CONFIG.clientId);
+    formData.append("client_secret", ZOHO_AUTH_CONFIG.clientSecret);
+    formData.append("refresh_token", ZOHO_AUTH_CONFIG.refreshToken);
+    formData.append("grant_type", "refresh_token");
+
     // Check if we're in development or production mode
     const isDevelopment = import.meta.env.DEV;
-    
+
     // In development, use the standard token URL with form data
     // In production, use the serverless function with form data
     const response = await axios.post(ZOHO_AUTH_CONFIG.tokenUrl, formData, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        "Content-Type": "application/x-www-form-urlencoded",
       },
     });
-    
-    console.log('Token refresh successful');
-    
+
     // Extract the access token and calculate expiration time
     // We'll set it to expire 10 seconds before the actual expiry to be safe
     const { access_token, expires_in } = response.data;
     const expiresAt = Date.now() + (expires_in - 10) * 1000;
-    
+
     // Update token data
     tokenData = {
       accessToken: access_token,
       expiresAt: expiresAt,
       rateLimited: false,
-      lastRefresh: Date.now()
+      lastRefresh: Date.now(),
     };
-    
+
     // Schedule the next refresh
     scheduleTokenRefresh();
-    
+
     return access_token;
   } catch (error) {
-    console.error('Error refreshing access token:', error);
-    const errorData = error.response ? error.response.data : 'No response data';
-    console.error('Error details:', errorData);
-    
+    const errorData = error.response ? error.response.data : "No response data";
+
     // Check if this is a rate limiting error
-    const isRateLimitError = 
-      errorData && 
-      (errorData.error === 'Access Denied') && 
-      errorData.error_description && 
-      errorData.error_description.includes('too many requests');
-    
+    const isRateLimitError =
+      errorData &&
+      errorData.error === "Access Denied" &&
+      errorData.error_description &&
+      errorData.error_description.includes("too many requests");
+
     if (isRateLimitError) {
-      console.warn(`Rate limit detected. Setting rate limited flag.`);
       tokenData.rateLimited = true;
-      
+
       // If we still have a token, use it until we can refresh
       if (tokenData.accessToken) {
-        console.warn(`Using existing token while rate limited.`);
         return tokenData.accessToken;
       }
-      
+
       // Retry with exponential backoff if we don't have a token
       if (retryCount < 3) {
         const retryDelay = delay * Math.pow(2, retryCount);
-        console.log(`Will retry in ${retryDelay}ms (attempt ${retryCount + 1} of 3)`);
-        
-        return new Promise(resolve => {
+
+        return new Promise((resolve) => {
           setTimeout(async () => {
             const token = await refreshAccessToken(retryCount + 1, delay);
             resolve(token);
@@ -110,7 +100,7 @@ export const refreshAccessToken = async (retryCount = 0, delay = 1000) => {
         });
       }
     }
-    
+
     // For other errors or if retries are exhausted, propagate the error
     throw error;
   }
@@ -124,17 +114,15 @@ const scheduleTokenRefresh = () => {
   if (refreshTimer) {
     clearTimeout(refreshTimer);
   }
-  
+
   // Calculate time until next refresh (in milliseconds)
   const now = Date.now();
   const timeUntilRefresh = Math.max(0, tokenData.expiresAt - now);
-  
-  console.log(`Scheduling next token refresh in ${Math.floor(timeUntilRefresh / 1000)} seconds`);
-  
+
   // Set timer for next refresh
   refreshTimer = setTimeout(() => {
-    refreshAccessToken().catch(error => {
-      console.error('Failed to refresh token in scheduled refresh:', error);
+    refreshAccessToken().catch((error) => {
+      // Failed to refresh token
     });
   }, timeUntilRefresh);
 };
@@ -145,12 +133,16 @@ const scheduleTokenRefresh = () => {
  */
 export const getAccessToken = async () => {
   const now = Date.now();
-  
+
   // If we don't have a token or it's expired, refresh it
-  if (!tokenData.accessToken || !tokenData.expiresAt || now >= tokenData.expiresAt) {
+  if (
+    !tokenData.accessToken ||
+    !tokenData.expiresAt ||
+    now >= tokenData.expiresAt
+  ) {
     return refreshAccessToken();
   }
-  
+
   // Return existing valid token
   return tokenData.accessToken;
 };
@@ -159,7 +151,6 @@ export const getAccessToken = async () => {
  * Initialize the auth service and get the first token
  */
 export const initAuthService = async () => {
-  console.log('Initializing auth service...');
   return refreshAccessToken();
 };
 
@@ -170,18 +161,18 @@ export const initAuthService = async () => {
 export const getAuthHeader = async () => {
   const token = await getAccessToken();
   return {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
   };
 };
 
 // Export a configured axios instance with auth headers
 export const createAuthenticatedAxiosInstance = async () => {
   const token = await getAccessToken();
-  
+
   return axios.create({
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
   });
 };

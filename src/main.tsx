@@ -6,10 +6,10 @@ import { initAuthService } from './services/authService'
 // Initialize the authentication service to get the first token
 initAuthService()
   .then(() => {
-    console.log('Authentication service initialized successfully');
+    // Authentication service initialized successfully
   })
   .catch(error => {
-    console.error('Failed to initialize authentication service:', error);
+    // Failed to initialize authentication service
   });
 
 createRoot(document.getElementById("root")!).render(<App />);

@@ -84,43 +84,8 @@ const Reports = () => {
         // Process data for charts
         processDataForCharts(monthData);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        
-        // Check if this is a rate limit error
-        const isRateLimitError = 
-          error.response && 
-          error.response.data && 
-          error.response.data.error === 'Access Denied' && 
-          error.response.data.error_description && 
-          error.response.data.error_description.includes('too many requests');
-        
-        if (isRateLimitError) {
-          // Don't show error state for rate limits, just a toast notification
-          // This prevents the UI from showing a big error message
-          
-          // Show toast notification
-          toast({
-            title: 'API Limit Reached',
-            description: 'The system will automatically retry in a moment. You can continue using the app.',
-            variant: 'warning',
-            duration: 5000
-          });
-          
-          // Also show a more persistent notification with sonner
-          sonnerToast.warning('API Limit Reached', {
-            description: 'The application will continue to function with cached data until the limit resets.',
-            duration: 8000,
-          });
-        } else {
-          setError('Failed to fetch data. Please try again later.');
-          
-          // Show generic error toast
-          toast({
-            title: 'Error',
-            description: 'Failed to load attendance data. Please try again later.',
-            variant: 'destructive'
-          });
-        }
+        // Error fetching data
+        toast.error("Error fetching attendance data. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -220,7 +185,7 @@ const Reports = () => {
             }
           }
         } catch (error) {
-          console.error('Error processing record:', error);
+          // Error processing record
         }
       });
     });

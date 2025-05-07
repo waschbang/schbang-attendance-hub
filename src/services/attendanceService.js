@@ -1,45 +1,55 @@
-import axios from 'axios';
-import { format, subDays, parseISO, isWeekend as isWeekendFn } from 'date-fns';
-import { getAuthHeader } from './authService';
+import axios from "axios";
+import { format, subDays, parseISO, isWeekend as isWeekendFn } from "date-fns";
+import { getAuthHeader } from "./authService";
+import { getApiUrl } from "../config/apiConfig";
 
 // Base API URL - Using Vite proxy to avoid CORS issues
-const API_BASE_URL = '/zoho-api/people/api';
+const API_BASE_URL = "/zoho-api/people/api";
 
 // Format date to DD-MM-YYYY format for Zoho API
 const formatDateForZoho = (date) => {
-  return format(date, 'dd-MM-yyyy');
+  const formattedDate = format(date, "dd-MM-yyyy");
+  return formattedDate;
 };
 
 // Get attendance data for a specific employee within a date range
-export const fetchEmployeeAttendance = async (employeeId, startDate, endDate) => {
+export const fetchEmployeeAttendance = async (
+  employeeId,
+  startDate,
+  endDate
+) => {
   try {
-    console.log(`Fetching attendance for employee ${employeeId} from ${formatDateForZoho(startDate)} to ${formatDateForZoho(endDate)}`);
-    
     const authHeader = await getAuthHeader();
-    
+
+    // Format dates for Zoho API
+    const formattedStartDate = formatDateForZoho(startDate);
+    const formattedEndDate = formatDateForZoho(endDate);
+
+    // Make the API request
     const response = await axios.get(
-      `${API_BASE_URL}/attendance/getUserReport`, {
+      `${getApiUrl()}/attendance/getUserReport`,
+      {
         params: {
-          sdate: formatDateForZoho(startDate),
-          edate: formatDateForZoho(endDate),
-          empId: employeeId
+          sdate: formattedStartDate,
+          edate: formattedEndDate,
+          empId: employeeId,
         },
         headers: {
           ...authHeader,
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
-    
-    console.log('Attendance API response:', response.data);
-    
-    const processedData = processZohoAttendanceData(response.data, employeeId);
-    console.log('Processed attendance data:', processedData);
-    
+
+    // Process the data
+    const processedData = processAttendanceData(
+      response.data,
+      startDate,
+      endDate
+    );
+
     return processedData;
   } catch (error) {
-    console.error(`Error fetching attendance data for employee ${employeeId}:`, error);
-    console.error('Error details:', error.response ? error.response.data : 'No response data');
     throw error;
   }
 };
@@ -47,38 +57,29 @@ export const fetchEmployeeAttendance = async (employeeId, startDate, endDate) =>
 // Get attendance data for all employees for today
 export const fetchTodayAttendance = async (employeeIds) => {
   const today = new Date();
-  console.log(`Fetching today's attendance for ${employeeIds.length} employees`);
-  
+
   try {
-    const attendancePromises = employeeIds.map(id => 
-      fetchEmployeeAttendance(id, today, today)
-        .then(data => {
-          // Process the raw Zoho data into our expected format
-          const processedData = processZohoAttendanceData(data, id);
-          return { id, data: processedData };
-        })
-        .catch(error => {
-          console.error(`Error fetching attendance for employee ${id}:`, error);
-          return { id, data: null };
-        })
-    );
-    
-    const attendanceResults = await Promise.all(attendancePromises);
-    
-    // Process the results into a map of employee ID to attendance data
+    // Create an array of promises to fetch attendance for each employee
+    const attendancePromises = employeeIds.map((id) => {
+      return fetchEmployeeAttendance(id, today, today).catch((error) => {
+        return { id, error: true, message: error.message };
+      });
+    });
+
+    // Wait for all promises to resolve
+    const results = await Promise.all(attendancePromises);
+
+    // Process the results into a single object with employee IDs as keys
     const attendanceMap = {};
-    
-    attendanceResults.forEach(({ id, data }) => {
-      if (data) {
-        attendanceMap[id] = data;
+
+    results.forEach((result) => {
+      if (!result.error) {
+        attendanceMap[result.employeeId] = result;
       }
     });
-    
-    console.log('Compiled attendance data for all employees:', attendanceMap);
+
     return attendanceMap;
   } catch (error) {
-    console.error('Error fetching today\'s attendance:', error);
-    console.error('Error details:', error.response ? error.response.data : 'No response data');
     throw error;
   }
 };
@@ -87,435 +88,128 @@ export const fetchTodayAttendance = async (employeeIds) => {
 export const fetchLastNDaysAttendance = async (employeeIds, days) => {
   const today = new Date();
   const startDate = subDays(today, days - 1); // Subtract days-1 to include today
-  
+
   try {
-    console.log(`Fetching attendance for ${employeeIds.length} employees for the last ${days} days`);
-    
-    const attendancePromises = employeeIds.map(id => 
-      fetchEmployeeAttendance(id, startDate, today)
-    );
-    
-    console.log(`Created ${attendancePromises.length} attendance fetch promises`);
-    const attendanceResults = await Promise.allSettled(attendancePromises);
-    
-    // Process results, including handling of rejected promises
+    // Create an array of promises to fetch attendance for each employee
+    const attendancePromises = employeeIds.map((employeeId) => {
+      return fetchEmployeeAttendance(employeeId, startDate, today);
+    });
+
+    // Wait for all promises to resolve
+    const results = await Promise.allSettled(attendancePromises);
+
+    // Process the results into a single object with employee IDs as keys
     const attendanceData = {};
-    
-    attendanceResults.forEach((result, index) => {
-      const employeeId = employeeIds[index];
-      
-      if (result.status === 'fulfilled') {
-        console.log(`Successfully fetched attendance for employee ${employeeId}`);
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        const employeeId = result.value.employeeId;
         attendanceData[employeeId] = result.value;
-      } else {
-        console.error(`Failed to fetch attendance for employee ${employeeId}:`, result.reason);
-        console.error('Error details:', result.reason.response ? result.reason.response.data : 'No response data');
-        attendanceData[employeeId] = null; // Set null for failed requests
+      } else if (result.status === "rejected") {
+        // Handle failed requests
       }
     });
-    
-    console.log('Compiled attendance data for all employees:', attendanceData);
+
     return attendanceData;
   } catch (error) {
-    console.error(`Error fetching attendance for the last ${days} days:`, error);
-    console.error('Error details:', error.response ? error.response.data : 'No response data');
     throw error;
   }
 };
 
 // Get attendance data for all employees for a specific date range
 export const fetchRangeAttendance = async (employeeIds, startDate, endDate) => {
-  console.log(`Fetching attendance for ${employeeIds.length} employees from ${formatDateForZoho(startDate)} to ${formatDateForZoho(endDate)}`);
-  
   try {
-    const attendancePromises = employeeIds.map(id => 
-      fetchEmployeeAttendance(id, startDate, endDate)
-    );
-    
-    console.log(`Created ${attendancePromises.length} attendance fetch promises for date range`);
-    const attendanceResults = await Promise.allSettled(attendancePromises);
-    
-    // Process results, including handling of rejected promises
+    // Create an array of promises to fetch attendance for each employee
+    const attendancePromises = employeeIds.map((employeeId) => {
+      return fetchEmployeeAttendance(employeeId, startDate, endDate);
+    });
+
+    // Wait for all promises to resolve
+    const results = await Promise.allSettled(attendancePromises);
+
+    // Process the results into a single object with employee IDs as keys
     const attendanceData = {};
-    
-    attendanceResults.forEach((result, index) => {
-      const employeeId = employeeIds[index];
-      
-      if (result.status === 'fulfilled') {
-        console.log(`Successfully fetched attendance for employee ${employeeId} for date range`);
-        attendanceData[employeeId] = result.value || []; 
-      } else {
-        console.error(`Failed to fetch attendance for employee ${employeeId} for date range:`, result.reason);
-        console.error('Error details:', result.reason.response ? result.reason.response.data : 'No response data');
-        attendanceData[employeeId] = []; // Set empty array for failed requests
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        const employeeId = result.value.employeeId;
+        attendanceData[employeeId] = result.value;
+      } else if (result.status === "rejected") {
+        // Handle failed requests
       }
     });
-    
-    console.log('Compiled attendance data for all employees for date range');
+
     return attendanceData;
   } catch (error) {
-    console.error(`Error fetching attendance for date range ${startDate} to ${endDate}:`, error);
-    console.error('Error details:', error.response ? error.response.data : 'No response data');
     throw error;
   }
 };
 
 // Process the raw Zoho attendance data into a more usable format
 export const processZohoAttendanceData = (data, employeeId) => {
-  console.log("Main Data", data);
-  
-  // Check if data is already processed (has employeeId, date, etc.)
-  if (data && data.employeeId && data.date) {
-    // Data is already processed, return it as is
+  if (!data) {
+    return null;
+  }
+
+  // If it's already in our expected format, return it as is
+  if (data.employeeId && Array.isArray(data.dailyRecords)) {
     return data;
   }
-  
-  // Handle the case where the data is wrapped in a response object
-  if (data && data.response && data.response.result) {
-    data = data.response.result;
-  }
-  
-  // Case 1: Date key format - { "2025-04-29": { ... } }
-  if (data && typeof data === 'object' && !Array.isArray(data) && Object.keys(data).length > 0) {
-    // Get the first date key (should be the current date)
-    const dateKey = Object.keys(data)[0];
-    const record = data[dateKey];
-    
-    if (record) {
-      // Extract check-in time from FirstIn field using regex to get exact time portion
-      let checkInTime = null;
-      if (record.FirstIn && record.FirstIn !== '-') {
-        const match = record.FirstIn.match(/\d{2}-\d{2}-\d{4}\s+(\d{2}:\d{2}\s+[AP]M)/);
-        checkInTime = match ? match[1] : null;
-      }
-      
-      // Extract check-out time from LastOut field using regex to get exact time portion
-      let checkOutTime = null;
-      if (record.LastOut && record.LastOut !== '-') {
-        const match = record.LastOut.match(/\d{2}-\d{2}-\d{4}\s+(\d{2}:\d{2}\s+[AP]M)/);
-        checkOutTime = match ? match[1] : null;
-      }
-      
-      // Create a properly formatted result object for the UI
-      const result = {
-        employeeId,
-        date: dateKey,
-        checkInTime,
-        checkOutTime,
-        workingHours: record.WorkingHours || record.TotalHours || '00:00',
-        status: record.Status || 'Absent',
-        isHoliday: record.Status && record.Status.toLowerCase().includes('holiday'),
-        holidayName: record.Status && record.Status.toLowerCase().includes('holiday') ? record.Status : '',
-        isWeekend: isWeekendFn(new Date(dateKey)), 
-        isLeave: record.Status && record.Status.toLowerCase().includes('leave'),
-        leaveType: record.Status && record.Status.toLowerCase().includes('leave') ? record.Status : '',
-        shiftName: record.ShiftName || '',
-        shiftStartTime: record.ShiftStartTime || '',
-        shiftEndTime: record.ShiftEndTime || '',
-        location: record.FirstIn_Location || ''
-      };
-      
-      console.log('Mapped attendance data for UI:', result);
-      return result;
-    }
-  }
-  
-  // Case 3: No data or empty data
-  return {
-    employeeId,
-    date: format(new Date(), 'yyyy-MM-dd'),
-    checkInTime: null,
-    checkOutTime: null,
-    workingHours: '00:00',
-    status: 'Absent',
-    isHoliday: false,
-    holidayName: '',
-    isWeekend: isWeekendFn(new Date()),
-    isLeave: false,
-    leaveType: '',
-    shiftName: '',
-    shiftStartTime: '',
-    shiftEndTime: '',
-    location: ''
-  };
-};
 
-// Helper function to process a record in the new format (with date keys)
-const processRecord = (record, dateKey) => {
-  console.log(`Processing record for date ${dateKey}:`, record);
-  
-  // IMPORTANT: Directly use the Status from the API response
-  // This ensures we show exactly what the API returns
-  // The API returns 'Present' but it's not being preserved in the final output
-  console.log('Status from API:', record.Status);
-  const status = record.Status === 'Present' ? 'Present' : (record.Status || 'Absent');
-  console.log('Using status:', status);
-  
-  // Extract check-in time from FirstIn if available
-  let checkInTime = null;
-  if (record.FirstIn && record.FirstIn !== '-') {
-    // Try to extract just the time part
-    const parts = record.FirstIn.split(' ');
-    if (parts.length >= 3) {
-      checkInTime = `${parts[1]} ${parts[2]}`;
-    }
-  }
-  
-  // Extract check-out time from LastOut if available
-  let checkOutTime = null;
-  if (record.LastOut && record.LastOut !== '-') {
-    const parts = record.LastOut.split(' ');
-    if (parts.length >= 3) {
-      checkOutTime = `${parts[1]} ${parts[2]}`;
-    }
-  }
-  
-  // Log the processed data for debugging
+  // Handle the case where data is a map of date -> record
   const result = {
-    date: dateKey,
-    checkInTime: checkInTime,
-    checkOutTime: checkOutTime,
-    workingHours: record.WorkingHours || record.TotalHours || '00:00',
-    status: status, // Use the exact Status from the API
-    isHoliday: false,
-    holidayName: '',
-    isWeekend: isWeekendFn(new Date()), 
-    isLeave: status.toLowerCase().includes('leave'),
-    leaveType: status.toLowerCase().includes('leave') ? status : '',
-    shiftName: record.ShiftName || '',
-    shiftStartTime: record.ShiftStartTime || '',
-    shiftEndTime: record.ShiftEndTime || '',
-    location: record.FirstIn_Location || ''
+    employeeId: employeeId,
+    dailyRecords: [],
   };
-  
-  console.log('Processed attendance data:', result);
-  return result;
-};
 
-// Helper function to process a record in the old format
-const processOldFormatRecord = (record) => {
-  console.log('Processing record (old format):', record);
-  
-  // Extract date from FirstIn or use current date
-  let dateStr = '';
-  let dateObj = new Date();
-  
-  if (record.FirstIn && record.FirstIn !== '-') {
-    // Try to extract date from FirstIn (format: DD-MM-YYYY HH:MM AM/PM)
-    const dateTimeParts = record.FirstIn.split(' ');
-    if (dateTimeParts.length >= 1) {
-      dateStr = dateTimeParts[0];
-      // Try to parse the date
-      try {
-        // Check if date is in DD-MM-YYYY format
-        if (dateStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
-          const [day, month, year] = dateStr.split('-');
-          dateObj = new Date(year, month - 1, day);
-        } else {
-          // Assume it's in YYYY-MM-DD format
-          dateObj = parseISO(dateStr);
-        }
-      } catch (error) {
-        console.error('Error parsing date:', error);
-        // Use current date as fallback
-        dateObj = new Date();
+  // Check if data is an object with date keys
+  if (typeof data === "object" && !Array.isArray(data)) {
+    // Convert the object with date keys to an array of records
+    Object.keys(data).forEach((dateKey) => {
+      const record = data[dateKey];
+
+      // Extract status
+      let status = "Absent";
+      if (record.Status) {
+        status = record.Status;
+      } else if (record.FirstIn && record.FirstIn !== "-") {
+        status = "Present";
       }
-    }
+
+      const processedRecord = {
+        date: dateKey,
+        status: status,
+        checkInTime:
+          record.FirstIn && record.FirstIn !== "-" ? record.FirstIn : null,
+        checkOutTime:
+          record.LastOut && record.LastOut !== "-" ? record.LastOut : null,
+        // Add more fields as needed
+      };
+
+      result.dailyRecords.push(processedRecord);
+    });
   }
-  
-  // Format the date as DD-MM-YYYY
-  dateStr = format(dateObj, 'dd-MM-yyyy');
-  
-  // Extract check-in time from FirstIn
-  let checkInTime = null;
-  if (record.FirstIn && record.FirstIn !== '-') {
-    const timeMatch = record.FirstIn.match(/\d{2}:\d{2}\s*[AP]M/i);
-    if (timeMatch) {
-      checkInTime = timeMatch[0];
-    }
-  }
-  
-  // Extract check-out time from LastOut
-  let checkOutTime = null;
-  if (record.LastOut && record.LastOut !== '-') {
-    const timeMatch = record.LastOut.match(/\d{2}:\d{2}\s*[AP]M/i);
-    if (timeMatch) {
-      checkOutTime = timeMatch[0];
-    }
-  }
-  
-  // Determine status
-  let status = 'Absent';
-  if (record.Status) {
-    status = record.Status;
-  } else if (checkInTime) {
-    status = 'Present';
-  }
-  
-  // Process working hours
-  let workingHours = '0.00';
-  if (record.WorkingHours && record.WorkingHours !== '-') {
-    workingHours = record.WorkingHours;
-  } else if (record.TotalHours && record.TotalHours !== '-') {
-    workingHours = record.TotalHours;
-  }
-  
-  // Create the processed record
-  const processedRecord = {
-    date: dateStr,
-    checkInTime,
-    checkOutTime,
-    workingHours,
-    status,
-    isHoliday: false, // We don't have this info from the API
-    holidayName: '',
-    isWeekend: isWeekendFn(dateObj),
-    isLeave: status.toLowerCase().includes('leave'),
-    leaveType: status.toLowerCase().includes('leave') ? status : '',
-    rawData: record // Keep the original data for reference
-  };
-  
-  console.log('Processed record:', processedRecord);
-  return processedRecord;
+
+  return result;
 };
 
 // Process the attendance data from the API
 export const processAttendanceData = (data, startDate, endDate) => {
-  console.log('Processing attendance data', { data, startDate, endDate });
-  
+  // If no data was returned, handle gracefully
   if (!data) {
-    console.warn('No attendance data received from Zoho API');
-    return [];
+    return { employeeId: null, dailyRecords: [] };
   }
-  
-  console.log('Received data format:', data);
-  
-  // Check if data is already in the expected format (direct API response)
-  // This happens when the data is directly from the API and not processed
-  if (Object.keys(data).length > 0 && data[Object.keys(data)[0]] && 
-      typeof data[Object.keys(data)[0]] === 'object' && 
-      data[Object.keys(data)[0]].hasOwnProperty('date')) {
-    console.log('Data is already in the expected format, returning as is');
-    
-    // Convert the object to an array format for consistency
-    const resultArray = [];
-    for (const empId in data) {
-      if (data.hasOwnProperty(empId)) {
-        // If it's a single day, wrap it in an array
-        if (!Array.isArray(data[empId])) {
-          resultArray.push(data[empId]);
-        } else {
-          // If it's already an array, add each item
-          data[empId].forEach(day => resultArray.push(day));
-        }
-      }
-    }
-    return resultArray;
+
+  // Check if the data is already in the expected format
+  if (data.employeeId && Array.isArray(data.dailyRecords)) {
+    return data;
   }
-  
-  const result = [];
-  const currentDate = new Date();
-  const currentDateStr = format(currentDate, 'yyyy-MM-dd');
-  
-  // Generate dates between start and end date
-  let dateIterator = new Date(startDate);
-  const endDateObj = new Date(endDate);
-  
-  while (dateIterator <= endDateObj) {
-    const dateStr = format(dateIterator, 'yyyy-MM-dd');
-    const dateFormatted = format(dateIterator, 'dd-MM-yyyy');
-    const dayData = data[dateStr] || data[dateFormatted];
-    
-    let status = 'Absent';
-    let checkInTime = null;
-    let checkOutTime = null;
-    let workingHours = 0;
-    let isHoliday = false;
-    let isWeekendDay = isWeekendFn(dateIterator);
-    let isLeave = false;
-    let leaveType = '';
-    let holidayName = '';
-    
-    if (dayData) {
-      // Extract status
-      if (dayData.Status) {
-        if (dayData.Status.includes('Present')) {
-          status = 'Present';
-        } else if (dayData.Status.includes('Weekend')) {
-          status = 'Weekend';
-          isWeekendDay = true;
-        } else if (dayData.Status.includes('Holiday')) {
-          status = 'Holiday';
-          isHoliday = true;
-          holidayName = 'Holiday';
-        } else if (dayData.Status.includes('Leave') || dayData.Status.includes('Off')) {
-          status = dayData.Status;
-          isLeave = true;
-          leaveType = dayData.LeaveCode || 'Leave';
-        } else if (dateStr === currentDateStr && !dayData.FirstIn) {
-          // If it's today and no check-in yet
-          const now = new Date();
-          const checkInDeadline = new Date(now);
-          checkInDeadline.setHours(10, 30, 0);
-          
-          if (now < checkInDeadline) {
-            status = 'Yet to Check In';
-          }
-        }
-      }
-      
-      // Extract check-in and check-out times
-      if (dayData.FirstIn && dayData.FirstIn !== '-') {
-        // Format: "21-04-2025 10:20 AM"
-        const timeMatch = dayData.FirstIn.match(/\d{2}-\d{2}-\d{4}\s+(\d{2}:\d{2}\s+[AP]M)/);
-        if (timeMatch && timeMatch[1]) {
-          checkInTime = timeMatch[1];
-        }
-      }
-      
-      if (dayData.LastOut && dayData.LastOut !== '-') {
-        const timeMatch = dayData.LastOut.match(/\d{2}-\d{2}-\d{4}\s+(\d{2}:\d{2}\s+[AP]M)/);
-        if (timeMatch && timeMatch[1]) {
-          checkOutTime = timeMatch[1];
-        }
-      }
-      
-      // Get working hours
-      if (dayData.TotalHours && dayData.TotalHours !== '00:00') {
-        // Convert HH:MM format to decimal hours
-        const [hours, minutes] = dayData.TotalHours.split(':');
-        workingHours = (parseFloat(hours) + parseFloat(minutes) / 60).toFixed(2);
-      }
-    } else if (dateStr === currentDateStr) {
-      // If it's today and no data yet
-      const now = new Date();
-      const checkInDeadline = new Date(now);
-      checkInDeadline.setHours(10, 30, 0);
-      
-      if (now < checkInDeadline) {
-        status = 'Yet to Check In';
-      }
-    }
-    
-    result.push({
-      date: format(dateIterator, 'dd-MM-yyyy'),
-      checkInTime,
-      checkOutTime,
-      workingHours,
-      status,
-      isHoliday,
-      holidayName,
-      isWeekend: isWeekendDay,
-      isLeave,
-      leaveType,
-      rawData: dayData || null
-    });
-    
-    // Move to next day
-    dateIterator.setDate(dateIterator.getDate() + 1);
-  }
-  
-  return result;
+
+  // Process into the standardized format
+  // Implementation depends on the actual format of the data
+  // This is a placeholder - you'll need to adapt to your API response format
+
+  return data;
 };
 
 // Helper function to determine current attendance status based on time
@@ -523,50 +217,50 @@ export const getCurrentAttendanceStatus = (checkInTime) => {
   const now = new Date();
   const checkInDeadline = new Date(now);
   checkInDeadline.setHours(10, 30, 0);
-  
+
   if (checkInTime) {
-    return 'Present';
+    return "Present";
   } else if (now < checkInDeadline) {
-    return 'Yet to Check In';
+    return "Yet to Check In";
   } else {
-    return 'Absent';
+    return "Absent";
   }
 };
 
 // Convert 12-hour format time to 24-hour format
 export const convertTo24Hour = (time12h) => {
-  if (!time12h || time12h === 'N/A' || time12h === '-') return null;
-  
-  const [time, modifier] = time12h.split(' ');
-  let [hours, minutes] = time.split(':');
-  
-  if (hours === '12') {
-    hours = '00';
+  if (!time12h || time12h === "N/A" || time12h === "-") return null;
+
+  const [time, modifier] = time12h.split(" ");
+  let [hours, minutes] = time.split(":");
+
+  if (hours === "12") {
+    hours = "00";
   }
-  
-  if (modifier === 'PM') {
+
+  if (modifier === "PM") {
     hours = parseInt(hours, 10) + 12;
   }
-  
+
   return `${hours}:${minutes}`;
 };
 
 // Format time for display (12-hour format)
 export const formatTimeForDisplay = (time) => {
-  if (!time || time === 'N/A' || time === '-') return 'N/A';
-  
+  if (!time || time === "N/A" || time === "-") return "N/A";
+
   // If already in 12-hour format with AM/PM
-  if (time.includes('AM') || time.includes('PM')) {
+  if (time.includes("AM") || time.includes("PM")) {
     return time;
   }
-  
+
   // If in 24-hour format
   try {
-    const [hours, minutes] = time.split(':');
+    const [hours, minutes] = time.split(":");
     const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const ampm = hour >= 12 ? "PM" : "AM";
     const formattedHour = hour % 12 || 12;
-    
+
     return `${formattedHour}:${minutes} ${ampm}`;
   } catch (error) {
     return time;

@@ -84,7 +84,7 @@ const Login = () => {
       }, 1500);
       
     } catch (error) {
-      console.error('Login error:', error);
+      // Login error occurred
       toast.error("Error", {
         description: "An error occurred during login. Please try again.",
       });
